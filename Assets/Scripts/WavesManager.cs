@@ -1,0 +1,559 @@
+using UnityEngine;
+using System.Collections.Generic;
+using Unity.VisualScripting;
+using System.Linq;
+
+public class WavesManager : MonoBehaviour
+{
+    public GameObject WavePrefab;
+    public GameObject SlotPrefab;
+    public float WaveSize = 1f;
+    public float WaveDelay = 0.2f;
+    public Camera TargetCamera;
+    public float CameraTweenSpeed = 5f;
+    public Node[,] Graph;
+
+    private int _gridX, _gridY;
+    private float targetOrthoSize;
+    private Vector3 targetCameraPosition;
+
+    private GameObject frameObject;
+    private List<Slot> slots = new List<Slot>();
+    private const float GRID_SHIFT_X = 2f; // Deslocamento para a esquerda em 2 unidades
+
+    [System.Serializable]
+    public class Influence { public object source; public float value; }
+
+    [System.Serializable]
+    public class Node
+    {
+        public Wave wave;
+        public int X, Y;
+        [Header("Neighbors")]
+        public Wave TopLeft = null;
+        public Wave TopUp = null;
+        public Wave TopRight = null;
+        public Wave Left = null;
+        public Wave Right = null;
+        public Wave BottomLeft = null;
+        public Wave Bottom = null;
+        public Wave BottomRight = null;
+
+        public List<Wave> Neighbors
+        {
+            get
+            {
+                if (neighbors == null)
+                {
+                    neighbors = new List<Wave>() { TopLeft, TopUp, TopRight, Left, Right, BottomLeft, Bottom, BottomRight };
+                }
+                return neighbors;
+            }
+        }
+        private List<Wave> neighbors = null;
+
+        public float NeighborsInfluence
+        {
+            get
+            {
+                float value = 0f;
+                foreach (var n in Neighbors)
+                {
+                    if (n != null)
+                    {
+                        value += n.Collapse;
+                    }
+                }
+                return value;
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (TargetCamera != null)
+        {
+            TargetCamera.orthographicSize = Mathf.Lerp(
+                TargetCamera.orthographicSize,
+                targetOrthoSize,
+                Time.deltaTime * CameraTweenSpeed
+            );
+            TargetCamera.transform.position = Vector3.Lerp(
+                TargetCamera.transform.position,
+                targetCameraPosition,
+                Time.deltaTime * CameraTweenSpeed
+            );
+        }
+    }
+
+    public void CreateGrid(int x, int y)
+    {
+        CancelInvoke();
+        DeleteExistingWaves();
+
+        _gridX = Mathf.Max(1, x);
+        _gridY = Mathf.Max(1, y);
+
+        Graph = new Node[_gridX, _gridY];
+
+        // O ponto de partida da Grid é ajustado para o shift
+        float startX = -(_gridX - 1) * WaveSize / 2f - (GRID_SHIFT_X * WaveSize);
+        float startY = -(_gridY - 1) * WaveSize / 2f;
+
+        for (int i = 0; i < _gridX; i++)
+        {
+            for (int j = 0; j < _gridY; j++)
+            {
+                Node node = new Node();
+                Wave wave = Instantiate(WavePrefab, transform).GetComponent<Wave>();
+
+                node.wave = wave;
+                node.X = i;
+                node.Y = j;
+
+                float posX = startX + i * WaveSize;
+                float posY = startY + j * WaveSize;
+
+                wave.transform.position = new Vector3(posX, posY, 0);
+                wave.transform.localScale = Vector3.one * WaveSize;
+                wave.gameObject.name = "Wave " + i + " - " + j;
+
+                Graph[i, j] = node;
+            }
+        }
+
+        // Configuração de vizinhos (mantida)
+        for (int i = 0; i < _gridX; i++)
+        {
+            for (int j = 0; j < _gridY; j++)
+            {
+                Node node = Graph[i, j];
+                node.TopLeft = (i > 0 && j < _gridY - 1) ? Graph[i - 1, j + 1].wave : null;
+                node.TopUp = (j < _gridY - 1) ? Graph[i, j + 1].wave : null;
+                node.TopRight = (i < _gridX - 1 && j < _gridY - 1) ? Graph[i + 1, j + 1].wave : null;
+                node.Left = (i > 0) ? Graph[i - 1, j].wave : null;
+                node.Right = (i < _gridX - 1) ? Graph[i + 1, j].wave : null;
+                node.BottomLeft = (i > 0 && j > 0) ? Graph[i - 1, j - 1].wave : null;
+                node.Bottom = (j > 0) ? Graph[i, j - 1].wave : null;
+                node.BottomRight = (i < _gridX - 1 && j > 0) ? Graph[i + 1, j - 1].wave : null;
+            }
+        }
+
+        CreateFrameAndSlots(_gridX, _gridY, startX, startY);
+        InvokeRepeating("Collapse", WaveDelay, WaveDelay);
+    }
+
+    void DeleteExistingWaves()
+    {
+        if (Graph != null)
+        {
+            for (int i = 0; i < _gridX; i++)
+            {
+                for (int j = 0; j < _gridY; j++)
+                {
+                    if (Graph[i, j] != null && Graph[i, j].wave != null)
+                    {
+                        DestroyImmediate(Graph[i, j].wave.gameObject);
+                    }
+                }
+            }
+            Graph = null;
+        }
+
+        if (frameObject != null)
+        {
+            DestroyImmediate(frameObject);
+            frameObject = null;
+        }
+
+        foreach (var slot in slots)
+        {
+            if (slot != null && slot.gameObject != null)
+            {
+                DestroyImmediate(slot.gameObject);
+            }
+        }
+        slots.Clear();
+
+        while (transform.childCount > 0)
+        {
+            DestroyImmediate(transform.GetChild(0).gameObject);
+        }
+    }
+
+    // Novo método para ajustar a câmera considerando o ObserversManager
+    public void FitCameraToBounds(float totalVisibleWidth, float totalVisibleHeight)
+    {
+        if (TargetCamera == null) return;
+
+        // 1. Calcular o tamanho ortográfico (Zoom)
+        float cameraAspect = TargetCamera.aspect;
+        float desiredHeight = totalVisibleHeight + WaveSize; // Adiciona margem
+        float desiredWidth = totalVisibleWidth + WaveSize; // Adiciona margem
+
+        float requiredVerticalSizeForHeight = desiredHeight / 2f;
+        float requiredVerticalSizeForWidth = desiredWidth / cameraAspect / 2f;
+
+        targetOrthoSize = Mathf.Max(requiredVerticalSizeForHeight, requiredVerticalSizeForWidth);
+
+        // 2. Calcular a posição da Câmera (Pan)
+        // Grid MinX (Frame) = -(_gridX / 2f + 1f) * WaveSize - GRID_SHIFT_X * WaveSize
+        // Grid MaxX (ObservesManager) = MaxX da Frame + 1 * WaveSize (Espaço) + 0.5 * WaveSize (ObserversManager Half Width)
+
+        float gridFrameWidth = (_gridX + 2) * WaveSize;
+        float gridMinX = -(_gridX / 2f * WaveSize + WaveSize) - GRID_SHIFT_X * WaveSize;
+        float gridMaxX = gridMinX + gridFrameWidth;
+
+        // Max X da área visível é o centro do ObserversManager (calculado no LevelManager) + 0.5 * WaveSize
+        float observersMaxX = gridMaxX + WaveSize + WaveSize; // Grid MaxX + Espaço(1) + Largura_Observers(1)
+
+        float minX = gridMinX;
+        float maxX = observersMaxX;
+
+        float totalAreaCenterX = (minX + maxX) / 2f;
+
+        // A altura é centrada no Y=0. O Z é mantido.
+        targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z);
+    }
+
+
+    public void Collapse()
+    {
+        if (Graph == null) return;
+        int width = Graph.GetLength(0);
+        int height = Graph.GetLength(1);
+
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                Node node = Graph[i, j];
+                node.wave.NeighborsInfluence = new Wave.Influence() { source = node.wave, value = node.NeighborsInfluence };
+                node.wave.SlowlyCollapse();
+            }
+        }
+    }
+
+    Slot.DirectionType GetDirection(int gridX, int gridY, int gridWidth, int gridHeight)
+    {
+        if (gridX == 0 && gridY == gridHeight) return Slot.DirectionType.Diagonal_DownRight;
+        if (gridX == gridWidth && gridY == gridHeight) return Slot.DirectionType.Diagonal_DownLeft;
+        if (gridX == gridWidth && gridY == 0) return Slot.DirectionType.Diagonal_UpLeft;
+        if (gridX == 0 && gridY == 0) return Slot.DirectionType.Diagonal_UpRight;
+
+        if (gridY == gridHeight) return Slot.DirectionType.Down;
+        if (gridY == 0) return Slot.DirectionType.Up;
+        if (gridX == 0) return Slot.DirectionType.Right;
+        if (gridX == gridWidth) return Slot.DirectionType.Left;
+
+        return Slot.DirectionType.None;
+    }
+
+    void CreateFrameAndSlots(int x, int y, float startX, float startY)
+    {
+        float gridWidth = x * WaveSize;
+        float gridHeight = y * WaveSize;
+
+        frameObject = new GameObject("Grid Frame");
+        frameObject.transform.SetParent(transform);
+
+        // Centro da grid (Shifted: -2, 0)
+        float centerGridX = startX + (gridWidth / 2f) - (WaveSize / 2f);
+        float centerGridY = startY + (gridHeight / 2f) - (WaveSize / 2f);
+
+        Vector3 framePosition = new Vector3(centerGridX, centerGridY, 0);
+        frameObject.transform.position = framePosition;
+
+        float minX = startX - WaveSize;
+        float maxX = startX + (x - 1) * WaveSize + WaveSize;
+        float minY = startY - WaveSize;
+        float maxY = startY + (y - 1) * WaveSize + WaveSize;
+
+        int expandedGridWidth = x + 1;
+        int expandedGridHeight = y + 1;
+
+        for (int i = -1; i <= x; i++)
+        {
+            float currentX;
+            int gridX;
+
+            if (i == -1)
+            {
+                currentX = minX;
+                gridX = 0;
+            }
+            else if (i == x)
+            {
+                currentX = maxX;
+                gridX = expandedGridWidth;
+            }
+            else
+            {
+                currentX = startX + i * WaveSize;
+                gridX = i + 1;
+            }
+
+            if (SlotPrefab != null)
+            {
+                float currentY = minY;
+                int gridY = 0;
+
+                Slot.CornerType corner = Slot.CornerType.None;
+                if (i == -1) corner = Slot.CornerType.BottomLeft;
+                else if (i == x) corner = Slot.CornerType.BottomRight;
+
+                Slot.DirectionType direction = GetDirection(gridX, gridY, expandedGridWidth, expandedGridHeight);
+
+                Vector3 posB = new Vector3(currentX, currentY, 0);
+                GameObject slotBObj = Instantiate(SlotPrefab, transform);
+                slotBObj.transform.position = posB;
+                slotBObj.transform.localScale = Vector3.one * WaveSize;
+                Slot slotB = slotBObj.GetComponent<Slot>();
+                if (slotB != null)
+                {
+                    slotB.Initialize(gridX, gridY, direction, this, corner);
+                    slots.Add(slotB);
+                }
+            }
+
+            if (SlotPrefab != null)
+            {
+                float currentY = maxY;
+                int gridY = expandedGridHeight;
+
+                Slot.CornerType corner = Slot.CornerType.None;
+                if (i == -1) corner = Slot.CornerType.TopLeft;
+                else if (i == x) corner = Slot.CornerType.TopRight;
+
+                Slot.DirectionType direction = GetDirection(gridX, gridY, expandedGridWidth, expandedGridHeight);
+
+                Vector3 posT = new Vector3(currentX, currentY, 0);
+                GameObject slotTObj = Instantiate(SlotPrefab, transform);
+                slotTObj.transform.position = posT;
+                slotTObj.transform.localScale = Vector3.one * WaveSize;
+                Slot slotT = slotTObj.GetComponent<Slot>();
+                if (slotT != null)
+                {
+                    slotT.Initialize(gridX, gridY, direction, this, corner);
+                    slots.Add(slotT);
+                }
+            }
+        }
+
+        for (int j = 0; j < y; j++)
+        {
+            float currentY = startY + j * WaveSize;
+            int gridY = j + 1;
+
+            if (SlotPrefab != null)
+            {
+                float currentX = minX;
+                int gridX = 0;
+
+                Slot.DirectionType direction = GetDirection(gridX, gridY, expandedGridWidth, expandedGridHeight);
+
+                Vector3 posL = new Vector3(currentX, currentY, 0);
+                GameObject slotLObj = Instantiate(SlotPrefab, transform);
+                slotLObj.transform.position = posL;
+                slotLObj.transform.localScale = Vector3.one * WaveSize;
+                Slot slotL = slotLObj.GetComponent<Slot>();
+                if (slotL != null)
+                {
+                    slotL.Initialize(gridX, gridY, direction, this, Slot.CornerType.None);
+                    slots.Add(slotL);
+                }
+            }
+
+            if (SlotPrefab != null)
+            {
+                float currentX = maxX;
+                int gridX = expandedGridWidth;
+
+                Slot.DirectionType direction = GetDirection(gridX, gridY, expandedGridWidth, expandedGridHeight);
+
+                Vector3 posR = new Vector3(currentX, currentY, 0);
+                GameObject slotRObj = Instantiate(SlotPrefab, transform);
+                slotRObj.transform.position = posR;
+                slotRObj.transform.localScale = Vector3.one * WaveSize;
+                Slot slotR = slotRObj.GetComponent<Slot>();
+                if (slotR != null)
+                {
+                    slotR.Initialize(gridX, gridY, direction, this, Slot.CornerType.None);
+                    slots.Add(slotR);
+                }
+            }
+        }
+    }
+
+    private (int dx, int dy) GetDirectionDelta(Slot.DirectionType direction)
+    {
+        switch (direction)
+        {
+            case Slot.DirectionType.Up: return (0, 1);
+            case Slot.DirectionType.Down: return (0, -1);
+            case Slot.DirectionType.Left: return (-1, 0);
+            case Slot.DirectionType.Right: return (1, 0);
+            case Slot.DirectionType.Diagonal_UpLeft: return (-1, 1);
+            case Slot.DirectionType.Diagonal_UpRight: return (1, 1);
+            case Slot.DirectionType.Diagonal_DownLeft: return (-1, -1);
+            case Slot.DirectionType.Diagonal_DownRight: return (1, -1);
+            default: return (0, 0);
+        }
+    }
+
+    private float CalculateDecayFactor(Observer.DecayType decayType, int waveIndex, int totalWavesAffected)
+    {
+        if (decayType == Observer.DecayType.DoesNotDecay)
+        {
+            return 1f;
+        }
+
+        if (decayType == Observer.DecayType.Spread)
+        {
+            if (totalWavesAffected <= 1) return 1f;
+            return 1f - ((float)waveIndex / (totalWavesAffected - 1));
+        }
+
+        float decayRate;
+        switch (decayType)
+        {
+            case Observer.DecayType.VerySlow: decayRate = 0.1f; break;
+            case Observer.DecayType.Slow: decayRate = 0.2f; break;
+            case Observer.DecayType.Medium: decayRate = 0.3f; break;
+            case Observer.DecayType.Fast: decayRate = 0.4f; break;
+            case Observer.DecayType.VeryFast: decayRate = 0.5f; break;
+            default: decayRate = 0f; break;
+        }
+
+        return Mathf.Max(0f, 1f - (waveIndex * decayRate));
+    }
+
+
+    public void ApplyObserverInfluence(Observer observer, Slot slot)
+    {
+        if (slot.CurrentObserver != observer || Graph == null) return;
+
+        int observerRange = observer.range;
+        Slot.DirectionType direction = slot.Direction;
+
+        int startWaveX = slot.GridX - 1;
+        int startWaveY = slot.GridY - 1;
+
+        List<Wave> wavesToAffect = new List<Wave>();
+
+        (int dx, int dy) = GetDirectionDelta(direction);
+
+        if (dx == 0 && dy == 0) return;
+
+        if (observerRange == 0)
+        {
+            if (dx != 0 && dy != 0)
+            {
+                int remainingX = (dx > 0) ? _gridX - (startWaveX + 1) : startWaveX;
+                int remainingY = (dy > 0) ? _gridY - (startWaveY + 1) : startWaveY;
+                observerRange = Mathf.Min(remainingX, remainingY);
+            }
+            else if (dx != 0)
+            {
+                observerRange = (dx > 0) ? _gridX - (startWaveX + 1) : startWaveX;
+            }
+            else
+            {
+                observerRange = (dy > 0) ? _gridY - (startWaveY + 1) : startWaveY;
+            }
+        }
+
+        int currentX = startWaveX;
+        int currentY = startWaveY;
+
+        for (int i = 0; i < observerRange; i++)
+        {
+            currentX += dx;
+            currentY += dy;
+
+            if (currentX >= 0 && currentX < _gridX && currentY >= 0 && currentY < _gridY)
+            {
+                Wave wave = Graph[currentX, currentY].wave;
+                if (wave != null)
+                {
+                    wavesToAffect.Add(wave);
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        int totalWavesAffected = wavesToAffect.Count;
+
+        for (int i = 0; i < totalWavesAffected; i++)
+        {
+            Wave wave = wavesToAffect[i];
+            float decayFactor = CalculateDecayFactor(observer.decay, i, totalWavesAffected);
+
+            float influenceValue = decayFactor * 1.0f;
+
+            Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
+            wave.AddInfluence(influence);
+        }
+    }
+
+    public void RemoveInfluenceSource(object source)
+    {
+        if (Graph == null || source == null) return;
+
+        int width = Graph.GetLength(0);
+        int height = Graph.GetLength(1);
+
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                Wave wave = Graph[i, j].wave;
+                if (wave != null)
+                {
+                    wave.RemoveInfluence(source);
+                }
+            }
+        }
+    }
+
+    public void HandleObserverDrop(Observer observer, Slot targetSlot)
+    {
+        if (observer == null || targetSlot == null)
+        {
+            Debug.LogError("HandleObserverDrop chamado com Observer ou Slot nulo.");
+            return;
+        }
+
+        if (targetSlot.CurrentObserver != null)
+        {
+            Observer existingObserver = targetSlot.CurrentObserver;
+            Slot originalSlot = observer.CurrentSlot;
+
+            if (originalSlot != null)
+            {
+                targetSlot.RemoveObserver();
+                originalSlot.AssignObserver(existingObserver);
+            }
+            else
+            {
+                targetSlot.RemoveObserver();
+                Destroy(existingObserver.gameObject);
+            }
+        }
+
+        targetSlot.AssignObserver(observer);
+
+        Debug.Log($"Observer '{observer.gameObject.name}' atribuído ao Slot: ({targetSlot.GridX}, {targetSlot.GridY}). Direção: {targetSlot.Direction}. Range: {observer.range}. Decay: {observer.decay}");
+    }
+
+    public void RemoveObserverFromSlot(Slot slot)
+    {
+        if (slot != null)
+        {
+            slot.RemoveObserver();
+        }
+    }
+}
