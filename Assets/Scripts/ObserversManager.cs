@@ -1,9 +1,10 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 public class ObserversManager : MonoBehaviour
 {
-    public float ObserverSize = 1f; // Tamanho padrão do Observer (e da coluna)
+    public float ObserverSize = 1f;
 
     public float TotalHeight { get; private set; }
 
@@ -13,7 +14,6 @@ public class ObserversManager : MonoBehaviour
     public void Initialize(float waveSize)
     {
         _waveSize = waveSize;
-        // Destrói observers existentes para re-criação
         foreach (var obs in _currentObservers)
         {
             if (obs != null)
@@ -22,7 +22,6 @@ public class ObserversManager : MonoBehaviour
         _currentObservers.Clear();
         TotalHeight = 0f;
 
-        // Garante que o ObserversManager tenha o tamanho de referência
         transform.localScale = Vector3.one * ObserverSize;
     }
 
@@ -37,26 +36,63 @@ public class ObserversManager : MonoBehaviour
         int count = observerPrefabs.Count;
         TotalHeight = count * ObserverSize;
 
-        // O centro vertical do ObserversManager é (0, 0) (e o centro da Grid também)
-        // Posição inicial (topo) = (TotalHeight / 2) - (ObserverSize / 2)
         float startY = (TotalHeight / 2f) - (ObserverSize / 2f);
 
         for (int i = 0; i < count; i++)
         {
             GameObject observerGO = Instantiate(observerPrefabs[i], transform);
             Observer observer = observerGO.GetComponent<Observer>();
+            observer.manager = this;
 
             if (observer != null)
             {
-                // Posição Y: startY - (i * ObserverSize)
                 float yPos = startY - (i * ObserverSize);
 
-                // Posição X é 0 porque ele está centrado horizontalmente no ObserversManager
                 observerGO.transform.localPosition = new Vector3(0, yPos, 0);
-                observerGO.transform.localScale = Vector3.one; // Reseta a escala local
+                observerGO.transform.localScale = Vector3.one;
                 _currentObservers.Add(observer);
                 observerGO.name = $"Observer {i + 1}";
             }
+        }
+
+        RecalculateObserverPositions();
+    }
+    public void ReturnObserver(Observer observer)
+    {
+        if (observer == null) 
+            return;
+
+        if (!_currentObservers.Contains(observer))
+        {
+            _currentObservers.Add(observer);
+        }
+        RecalculateObserverPositions();
+    }
+
+    private void RecalculateObserverPositions()
+    {
+        // 1. Cria uma nova lista temporária (availableObservers) com APENAS os observadores
+        // da lista mestre que estão disponíveis (CurrentSlot == null).
+        List<Observer> availableObservers = _currentObservers
+            .Where(obs => obs != null && obs.CurrentSlot == null)
+            .ToList();
+
+        int count = availableObservers.Count;
+        TotalHeight = count * ObserverSize;
+
+        if (count == 0) return;
+
+        float startY = (TotalHeight / 2f) - (ObserverSize / 2f);
+
+        for (int i = 0; i < count; i++)
+        {
+            Observer observer = availableObservers[i];
+            float yPos = startY - (i * ObserverSize);
+
+            observer.transform.SetParent(this.transform);
+            observer.transform.localPosition = new Vector3(0, yPos, 0);
+            observer.transform.localScale = Vector3.one;
+            observer.gameObject.name = $"Observer {i + 1}";
         }
     }
 }

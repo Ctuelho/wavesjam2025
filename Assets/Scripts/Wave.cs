@@ -13,6 +13,7 @@ public class Wave : MonoBehaviour, IPointerClickHandler
         public float value;
     }
 
+    private bool AddSelfInfluence = true;
     public List<Influence> Influences = new List<Influence>();
     public Influence NeighborsInfluence = new Influence();
     public float Collapse = 0.0f;
@@ -32,6 +33,11 @@ public class Wave : MonoBehaviour, IPointerClickHandler
             Renderer = GetComponent<SpriteRenderer>();
         }
         Renderer.color = new Color(Renderer.color.r, Renderer.color.g, Renderer.color.b, 0f);
+
+        if (AddSelfInfluence)
+        {
+            AddInfluence(new Influence() { source = this, value = 0.0f });
+        }
     }
 
     private void Update()
@@ -74,7 +80,7 @@ public class Wave : MonoBehaviour, IPointerClickHandler
         currentAlpha = Mathf.Clamp01(currentAlpha);
 
         Color newColor = ColorGradient.Evaluate(Collapse);
-        newColor.a = currentAlpha;
+        //newColor.a = currentAlpha;
         Renderer.color = newColor;
     }
 

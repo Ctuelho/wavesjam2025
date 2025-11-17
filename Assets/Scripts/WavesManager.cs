@@ -5,6 +5,10 @@ using System.Linq;
 
 public class WavesManager : MonoBehaviour
 {
+    public ObserversManager ObserversManager;
+
+    public static int GridSize;
+
     public GameObject WavePrefab;
     public GameObject SlotPrefab;
     public float WaveSize = 1f;
@@ -16,10 +20,11 @@ public class WavesManager : MonoBehaviour
     private int _gridX, _gridY;
     private float targetOrthoSize;
     private Vector3 targetCameraPosition;
+    private bool running = false;
 
     private GameObject frameObject;
     private List<Slot> slots = new List<Slot>();
-    private const float GRID_SHIFT_X = 2f; // Deslocamento para a esquerda em 2 unidades
+    private const float GRID_SHIFT_X = 2f;
 
     [System.Serializable]
     public class Influence { public object source; public float value; }
@@ -69,34 +74,44 @@ public class WavesManager : MonoBehaviour
         }
     }
 
+    private void OnDisable()
+    {
+        running = false;
+    }
+
     void Update()
     {
-        if (TargetCamera != null)
+        if (running)
         {
-            TargetCamera.orthographicSize = Mathf.Lerp(
-                TargetCamera.orthographicSize,
-                targetOrthoSize,
-                Time.deltaTime * CameraTweenSpeed
-            );
-            TargetCamera.transform.position = Vector3.Lerp(
-                TargetCamera.transform.position,
-                targetCameraPosition,
-                Time.deltaTime * CameraTweenSpeed
-            );
+            if (TargetCamera != null)
+            {
+                TargetCamera.orthographicSize = Mathf.Lerp(
+                    TargetCamera.orthographicSize,
+                    targetOrthoSize,
+                    Time.deltaTime * CameraTweenSpeed
+                );
+                TargetCamera.transform.position = Vector3.Lerp(
+                    TargetCamera.transform.position,
+                    targetCameraPosition,
+                    Time.deltaTime * CameraTweenSpeed
+                );
+            }
         }
     }
 
-    public void CreateGrid(int x, int y)
+    public void CreateGrid(int size)
     {
         CancelInvoke();
         DeleteExistingWaves();
 
+        GridSize = size;
+        int x, y;
+        x = y = size;
         _gridX = Mathf.Max(1, x);
         _gridY = Mathf.Max(1, y);
 
         Graph = new Node[_gridX, _gridY];
 
-        // O ponto de partida da Grid é ajustado para o shift
         float startX = -(_gridX - 1) * WaveSize / 2f - (GRID_SHIFT_X * WaveSize);
         float startY = -(_gridY - 1) * WaveSize / 2f;
 
@@ -122,7 +137,6 @@ public class WavesManager : MonoBehaviour
             }
         }
 
-        // Configuração de vizinhos (mantida)
         for (int i = 0; i < _gridX; i++)
         {
             for (int j = 0; j < _gridY; j++)
@@ -181,41 +195,32 @@ public class WavesManager : MonoBehaviour
         }
     }
 
-    // Novo método para ajustar a câmera considerando o ObserversManager
     public void FitCameraToBounds(float totalVisibleWidth, float totalVisibleHeight)
     {
         if (TargetCamera == null) return;
 
-        // 1. Calcular o tamanho ortográfico (Zoom)
         float cameraAspect = TargetCamera.aspect;
-        float desiredHeight = totalVisibleHeight + WaveSize; // Adiciona margem
-        float desiredWidth = totalVisibleWidth + WaveSize; // Adiciona margem
+        float desiredHeight = totalVisibleHeight + WaveSize;
+        float desiredWidth = totalVisibleWidth + WaveSize;
 
         float requiredVerticalSizeForHeight = desiredHeight / 2f;
         float requiredVerticalSizeForWidth = desiredWidth / cameraAspect / 2f;
 
         targetOrthoSize = Mathf.Max(requiredVerticalSizeForHeight, requiredVerticalSizeForWidth);
 
-        // 2. Calcular a posição da Câmera (Pan)
-        // Grid MinX (Frame) = -(_gridX / 2f + 1f) * WaveSize - GRID_SHIFT_X * WaveSize
-        // Grid MaxX (ObservesManager) = MaxX da Frame + 1 * WaveSize (Espaço) + 0.5 * WaveSize (ObserversManager Half Width)
-
         float gridFrameWidth = (_gridX + 2) * WaveSize;
         float gridMinX = -(_gridX / 2f * WaveSize + WaveSize) - GRID_SHIFT_X * WaveSize;
         float gridMaxX = gridMinX + gridFrameWidth;
 
-        // Max X da área visível é o centro do ObserversManager (calculado no LevelManager) + 0.5 * WaveSize
-        float observersMaxX = gridMaxX + WaveSize + WaveSize; // Grid MaxX + Espaço(1) + Largura_Observers(1)
+        float observersMaxX = gridMaxX + WaveSize + WaveSize;
 
         float minX = gridMinX;
         float maxX = observersMaxX;
 
         float totalAreaCenterX = (minX + maxX) / 2f;
 
-        // A altura é centrada no Y=0. O Z é mantido.
-        targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z);
+        targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z -0.5f);
     }
-
 
     public void Collapse()
     {
@@ -251,13 +256,14 @@ public class WavesManager : MonoBehaviour
 
     void CreateFrameAndSlots(int x, int y, float startX, float startY)
     {
+        running = true;
+
         float gridWidth = x * WaveSize;
         float gridHeight = y * WaveSize;
 
         frameObject = new GameObject("Grid Frame");
         frameObject.transform.SetParent(transform);
 
-        // Centro da grid (Shifted: -2, 0)
         float centerGridX = startX + (gridWidth / 2f) - (WaveSize / 2f);
         float centerGridY = startY + (gridHeight / 2f) - (WaveSize / 2f);
 
@@ -492,7 +498,7 @@ public class WavesManager : MonoBehaviour
             Wave wave = wavesToAffect[i];
             float decayFactor = CalculateDecayFactor(observer.decay, i, totalWavesAffected);
 
-            float influenceValue = decayFactor * 1.0f;
+            float influenceValue = decayFactor * observer.force;
 
             Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
             wave.AddInfluence(influence);
@@ -523,30 +529,27 @@ public class WavesManager : MonoBehaviour
     {
         if (observer == null || targetSlot == null)
         {
-            Debug.LogError("HandleObserverDrop chamado com Observer ou Slot nulo.");
+            Debug.LogError("HandleObserverDrop observer or slot null!");
             return;
         }
 
         if (targetSlot.CurrentObserver != null)
         {
             Observer existingObserver = targetSlot.CurrentObserver;
-            Slot originalSlot = observer.CurrentSlot;
 
-            if (originalSlot != null)
+            targetSlot.RemoveObserver();
+
+            if (ObserversManager != null)
             {
-                targetSlot.RemoveObserver();
-                originalSlot.AssignObserver(existingObserver);
-            }
-            else
-            {
-                targetSlot.RemoveObserver();
-                Destroy(existingObserver.gameObject);
+                if (existingObserver.CurrentSlot != null)
+                {
+                    existingObserver.CurrentSlot.RemoveObserver();
+                }
+                ObserversManager.ReturnObserver(existingObserver);
             }
         }
 
         targetSlot.AssignObserver(observer);
-
-        Debug.Log($"Observer '{observer.gameObject.name}' atribuído ao Slot: ({targetSlot.GridX}, {targetSlot.GridY}). Direção: {targetSlot.Direction}. Range: {observer.range}. Decay: {observer.decay}");
     }
 
     public void RemoveObserverFromSlot(Slot slot)

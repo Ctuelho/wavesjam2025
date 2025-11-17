@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,7 +10,9 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     private Collider2D _col;
 
     public int range = 0;
+    public int force = 0;
     public DecayType decay = DecayType.DoesNotDecay;
+    internal ObserversManager manager;
 
     public enum DecayType { DoesNotDecay = 0, Spread = 1, VerySlow = 2, Slow = 3, Medium = 4, Fast = 5, VeryFast = 6 }
 
@@ -43,30 +46,98 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     {
         GameObject droppedOn = eventData.pointerCurrentRaycast.gameObject;
         _col.enabled = true;
+        Slot targetSlot = null;
 
-        if (droppedOn != null)
+        if(droppedOn == null)
         {
-            Slot targetSlot = droppedOn.GetComponent<Slot>();
-
-            if (targetSlot != null)
-            {
-                targetSlot.HandleObserverDrop(this);
-                return;
-            }
+            ReturnToManager();
+            return;
         }
 
-        if (_startParent != null && _startParent.GetComponent<Slot>() != null)
+        targetSlot = droppedOn.GetComponent<Slot>();
+        if (targetSlot != null)
         {
-            Slot originalSlot = _startParent.GetComponent<Slot>();
-            if (originalSlot != null)
+            if (targetSlot.CurrentObserver != null)
             {
-                originalSlot.AssignObserver(this);
+                //replace
+                targetSlot.CurrentObserver.ReturnToManager();
             }
+
+            targetSlot.HandleObserverDrop(this);
+            return;
+        }
+
+        //dropped on observer being used
+        Observer observerDroppedOn = droppedOn.GetComponent<Observer>();
+        if (observerDroppedOn != null)
+        {
+            //dropped on an observer, now check if it is in use or in the manager
+            if(observerDroppedOn.CurrentSlot == null)
+            {
+                //dropped in the manager, just return this to the manager
+                ReturnToManager();
+                return;
+            }
+
+            targetSlot = observerDroppedOn.CurrentSlot;
+            observerDroppedOn.CurrentSlot.RemoveObserver();
+            targetSlot.HandleObserverDrop(this);
+            return;
+        }
+
+        //if (_startParent != null && _startParent.GetComponent<Slot>() != null)
+        //{
+        //    if (_startParent.GetComponent<ObserversManager>() != null)
+        //    {
+        //        ReturnToManager();
+        //        return;
+        //    }
+
+        //    Slot originalSlot = _startParent.GetComponent<Slot>();
+        //    if (originalSlot != null)
+        //    {
+        //        originalSlot.AssignObserver(this);
+        //        return;
+        //    }
+        //}
+
+        ReturnToManager();
+    }
+
+    private void ReturnToManager()
+    {
+        if (manager != null)
+        {
+            if(CurrentSlot != null)
+            {
+                CurrentSlot.RemoveObserver();
+            }
+            manager.ReturnObserver(this);
         }
         else
         {
             transform.position = _startPosition;
             transform.SetParent(_startParent);
+        }
+    }
+
+    public void IncreaseRange()
+    {
+        range++;
+        
+        if (range > WavesManager.GridSize)
+        {
+            range = 0;
+        }
+    }
+
+    public void DecreaseRange()
+    {
+        range--;
+
+        if (range < 0)
+        {
+            range = WavesManager.GridSize;
         }
     }
 }
