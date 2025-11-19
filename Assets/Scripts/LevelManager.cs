@@ -17,6 +17,14 @@ public class LevelManager : MonoBehaviour
     [Header("Observer Setup")]
     public List<GameObject> observerPrefabs = new List<GameObject>();
 
+    private void Update()
+    {
+        if (Input.GetKeyUp(KeyCode.F5))
+        {
+            Level.ClearSave();
+        }
+    }
+
     private void Start()
     {
         //InitializeLevel();
