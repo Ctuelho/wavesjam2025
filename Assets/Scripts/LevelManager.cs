@@ -1,3 +1,4 @@
+﻿// LevelManager.cs
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -10,6 +11,8 @@ public class LevelManager : MonoBehaviour
     [Header("Grid Settings")]
     public int GridSize = 9;
     public float WaveSize = 1f;
+
+    public float GRID_OBSERVER_PADDING = 1.0f;
 
     [Header("Observer Setup")]
     public List<GameObject> observerPrefabs = new List<GameObject>();
@@ -30,30 +33,101 @@ public class LevelManager : MonoBehaviour
         wavesManager.WaveSize = WaveSize;
         wavesManager.CreateGrid(GridSize);
 
-        observersManager.Initialize(WaveSize);
         observersManager.Observe(observerPrefabs);
 
-        float gridFrameWidth = (GridSize + 2) * WaveSize;
-        float gridFrameHeight = (GridSize + 2) * WaveSize;
-
-        float gridMaxX = -2 * WaveSize + (gridFrameWidth / 2f);
-
-        float observersManagerCenterX = gridMaxX + 1.0f * WaveSize + 0.5f * WaveSize;
-
-        observersManager.transform.position = new Vector3(observersManagerCenterX, 0f, 0f);
-
-        AdjustCamera();
+        AdjustCameraAndPositions();
     }
 
-    private void AdjustCamera()
+
+    // LevelManager.cs (Modificação em AdjustCameraAndPositions)
+
+    // LevelManager.cs (Modificado)
+
+    // LevelManager.cs (Modificado)
+
+    private void AdjustCameraAndPositions()
     {
+        // A Grid (WavesManager) é a âncora central.
+        wavesManager.transform.position = Vector3.zero;
+
+        // 1. DIMENSÕES E PADDINGS X e Y
+        float widthLS = wavesManager.LeftSpriteSize;
+        float widthO = observersManager.TotalWidth;
+
+        float deltaW = widthLS - widthO;
+
+        float paddingX, paddingY;
+
+        // Força a simetria (X e Y devem ser >= 1.0f)
+        if (deltaW > 0) // Left Sprite é mais largo (Compensa em Y)
+        {
+            paddingX = 1.0f;
+            paddingY = 1.0f + deltaW;
+        }
+        else // Observers é mais largo ou igual (Compensa em X)
+        {
+            paddingY = 1.0f;
+            paddingX = 1.0f - deltaW;
+        }
+
         float gridFrameWidth = (GridSize + 2) * WaveSize;
-        float totalWidth = gridFrameWidth + WaveSize + WaveSize;
-
         float gridVisibleHeight = (GridSize + 2) * WaveSize;
-        float observersVisibleHeight = observersManager.TotalHeight;
-        float totalHeight = Mathf.Max(gridVisibleHeight, observersVisibleHeight);
 
-        wavesManager.FitCameraToBounds(totalWidth, totalHeight);
+        // Canto Esquerdo do Frame da Grid (relativo ao centro WavesManager/Grid em X=0)
+        float gridFrameMinX_Local = -(gridFrameWidth / 2f);
+        float gridFrameMaxX_Local = (gridFrameWidth / 2f);
+
+        // 2. POSIÇÃO DO LEFT SPRITE (LS)
+        // Chamando o novo método do WavesManager que posiciona o LS relativo ao centro da Grid (X=0)
+        wavesManager.UpdateLeftSpritePosition(gridFrameMinX_Local, paddingX);
+
+        // Posição central do LS:
+        float leftSpriteCenterX = wavesManager.LeftSpriteRenderer.transform.position.x;
+
+        // Borda Esquerda do LS (Para a câmera)
+        float leftSpriteMinX = leftSpriteCenterX - (widthLS / 2f);
+
+        // 3. POSIÇÃO DOS OBSERVERS
+
+        // X Mínimo dos Observers (borda esquerda) = Borda Direita da Grid + Padding Y
+        float observersMinX = gridFrameMaxX_Local + paddingY;
+
+        // X Local da borda esquerda do Observers Manager 
+        float observersMinX_Local = -observersManager.TotalWidth + observersManager.ObserverSize;
+
+        // Posição Central do ObserversManager
+        float observersManagerPosX = observersMinX - observersMinX_Local;
+        observersManager.transform.position = new Vector3(observersManagerPosX, 0f, 0f);
+
+        // 4. CÁLCULO DA ÁREA VISÍVEL TOTAL PARA A CÂMERA 🎥
+
+        // O layout final é: [1.0] [LS] [X] [GRID] [Y] [O] [1.0]
+
+        // O ponto de ancoragem original do Left Sprite tinha um padding de ScreenEdgePadding,
+        // mas na nova lógica, ele está posicionado relativo à Grid.
+        // Se o layout total deve ter um padding fixo de 1.0f na borda da tela:
+
+        // Borda Esquerda da Área Total (Para a Câmera)
+        // O LS está em leftSpriteMinX. Adiciona o padding fixo (1.0)
+        float totalAreaMinX = leftSpriteMinX - 1.0f;
+
+        // Borda Direita da Área Total (Para a Câmera)
+        // Onde termina a última coluna de Observers:
+        // Posição Central do Manager + Largura Total
+        float observersMaxX_Mundo = observersManagerPosX + observersManager.TotalWidth;
+
+        // Adiciona o padding fixo (1.0)
+        float totalAreaMaxX = observersMaxX_Mundo + 1.0f;
+
+        // A área total visível é calculada a partir dos extremos.
+        float totalAreaWidth = totalAreaMaxX - totalAreaMinX;
+        float totalAreaCenterX = (totalAreaMinX + totalAreaMaxX) / 2f;
+
+        float observersVisibleHeight = observersManager.TotalHeight;
+        float totalVisibleHeight = Mathf.Max(gridVisibleHeight, observersVisibleHeight);
+
+        // 5. AJUSTE DA CÂMERA
+        // Move a câmera para o centro da Área Total e ajusta o zoom (Ortho Size).
+        wavesManager.FitCameraToBounds(totalAreaWidth, totalAreaCenterX, totalVisibleHeight);
     }
 }
