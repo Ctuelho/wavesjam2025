@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using System.Data;
 
 public class Level : MonoBehaviour, IPointerClickHandler
 {
@@ -25,6 +26,9 @@ public class Level : MonoBehaviour, IPointerClickHandler
 
     public Level OpensIf;
 
+    public List<GameObject> shadowStars;
+    public List<GameObject> trueStars;
+
     private int stars = 0;
     private bool _isComplete;
     public bool IsComplete 
@@ -37,8 +41,13 @@ public class Level : MonoBehaviour, IPointerClickHandler
         {
             _isComplete = value;
             completeMark.SetActive(value);
-            interactable.interactable = (value && true);
+            interactable.interactable = value;
         }
+    }
+
+    private void OnValidate()
+    {
+        levelName = name;
     }
 
     private void Awake()
@@ -46,6 +55,7 @@ public class Level : MonoBehaviour, IPointerClickHandler
         if (PlayerPrefs.HasKey(levelId.ToString()))
         {            
             stars = PlayerPrefs.GetInt(levelId.ToString());
+            UpdateStars();
             IsComplete = true;
         }
     }
@@ -66,17 +76,17 @@ public class Level : MonoBehaviour, IPointerClickHandler
                 willOpen = lvl.OpensIf.IsComplete;
             }
 
-            if(willOpen)
-            {
-                lvl.interactable.interactable = willOpen;
-                lvl.closedMark.SetActive(!willOpen);
-            }
+            lvl.interactable.interactable = willOpen;
+            lvl.closedMark.SetActive(!willOpen);
+            lvl.completeMark.SetActive(willOpen);
+            lvl.UpdateStars();
         }
     }
 
     public void Complete(int stars)
     {
         this.stars = stars;
+        UpdateStars();
         PlayerPrefs.SetInt(levelId.ToString(), stars);
         PlayerPrefs.Save();
     }
@@ -101,6 +111,9 @@ public class Level : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (!interactable.interactable)
+            return;
+
         if (SelectedLevel != null && SelectedLevel != this)
         {
             Level previousSelection = SelectedLevel;
@@ -117,6 +130,22 @@ public class Level : MonoBehaviour, IPointerClickHandler
         if (backgroundImage != null)
         {
             backgroundImage.color = (SelectedLevel == this) ? selectedColor : normalColor;
+        }
+    }
+
+    public void UpdateStars()
+    {
+        int count = Mathf.Min(shadowStars.Count, trueStars.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            bool starAchieved = i < stars;
+
+            if (trueStars[i] != null)
+                trueStars[i].SetActive(starAchieved);
+
+            if (shadowStars[i] != null)
+                shadowStars[i].SetActive(!starAchieved);
         }
     }
 }

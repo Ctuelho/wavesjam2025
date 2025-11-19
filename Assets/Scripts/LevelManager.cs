@@ -1,15 +1,29 @@
 ﻿// LevelManager.cs
 using UnityEngine;
 using System.Collections.Generic;
+using System;
+using System.Linq;
 
 public class LevelManager : MonoBehaviour
 {
+    public class LevelData 
+    {
+        public int levelId;
+        public string levelName;
+        public int duration = 30;
+        public List<GameObject> observers;
+        public int gridSize = 3;
+        public Sprite target;
+    }
+
+    public static LevelData CurrentLevelData;
+
     [Header("Dependencies")]
     public WavesManager wavesManager;
     public ObserversManager observersManager;
 
     [Header("Grid Settings")]
-    public int GridSize = 9;
+    //public int GridSize = 9;
     public float WaveSize = 1f;
 
     public float GRID_OBSERVER_PADDING = 1.0f;
@@ -39,11 +53,13 @@ public class LevelManager : MonoBehaviour
         }
 
         wavesManager.WaveSize = WaveSize;
-        wavesManager.CreateGrid(GridSize);
+        wavesManager.CreateGrid(CurrentLevelData.gridSize);
 
-        observersManager.Observe(observerPrefabs);
+        observersManager.Observe(CurrentLevelData.observers);
 
         AdjustCameraAndPositions();
+
+        Invoke("AdjustCameraAndPositions", 0.1f);
     }
 
 
@@ -78,8 +94,8 @@ public class LevelManager : MonoBehaviour
             paddingX = 1.0f - deltaW;
         }
 
-        float gridFrameWidth = (GridSize + 2) * WaveSize;
-        float gridVisibleHeight = (GridSize + 2) * WaveSize;
+        float gridFrameWidth = (CurrentLevelData.gridSize + 2) * WaveSize;
+        float gridVisibleHeight = (CurrentLevelData.gridSize + 2) * WaveSize;
 
         // Canto Esquerdo do Frame da Grid (relativo ao centro WavesManager/Grid em X=0)
         float gridFrameMinX_Local = -(gridFrameWidth / 2f);
@@ -137,5 +153,16 @@ public class LevelManager : MonoBehaviour
         // 5. AJUSTE DA CÂMERA
         // Move a câmera para o centro da Área Total e ajusta o zoom (Ortho Size).
         wavesManager.FitCameraToBounds(totalAreaWidth, totalAreaCenterX, totalVisibleHeight);
+    }
+
+    internal static void SetLevelData(Level selectedLevel)
+    {
+        CurrentLevelData = new LevelData();
+        CurrentLevelData.levelName = selectedLevel.name;
+        CurrentLevelData.levelId = selectedLevel.levelId;
+        CurrentLevelData.duration = selectedLevel.duration;
+        CurrentLevelData.observers = selectedLevel.observers.ToList();
+        CurrentLevelData.target = selectedLevel.target;
+        CurrentLevelData.gridSize = selectedLevel.gridSize;
     }
 }

@@ -75,6 +75,7 @@ public class Wave : MonoBehaviour, IPointerClickHandler
 
         targetCollapse = Mathf.Clamp01(targetCollapse);
         Collapse = Mathf.Lerp(Collapse, targetCollapse, Time.deltaTime * CollapseSpeed);
+        Collapse = Mathf.Clamp(Collapse, 0f, 1f);
 
         currentAlpha = Mathf.MoveTowards(currentAlpha, 1f, Time.deltaTime * AlphaFadeInSpeed);
         currentAlpha = Mathf.Clamp01(currentAlpha);

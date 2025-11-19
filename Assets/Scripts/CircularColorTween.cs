@@ -18,7 +18,6 @@ public class CircularColorTween : MonoBehaviour
     private int sequenceIndex = 0;
     private bool firstCycle = true;
     private Coroutine colorCycleCoroutine;
-    private bool isRunning = false;
 
     void Awake()
     {
@@ -29,46 +28,28 @@ public class CircularColorTween : MonoBehaviour
         colorSequence = new List<Color>(availableColors);
     }
 
-    void Start()
-    {
-        isRunning = true;
-
-        if (targetImage != null)
-        {
-            targetImage.color = Color.white;
-        }
-
-        colorCycleCoroutine = StartCoroutine(ColorCycle());
-    }
-
     void OnEnable()
     {
-        DOTween.Play(targetImage);
+        if (availableColors.Count == 0) return;
 
-        if (colorCycleCoroutine == null && isRunning)
-        {
-            colorCycleCoroutine = StartCoroutine(ColorCycle());
-        }
+        targetImage.DOKill();
+        colorCycleCoroutine = StartCoroutine(ColorCycle());
     }
 
     void OnDisable()
     {
-        DOTween.Pause(targetImage);
+        targetImage.DOKill();
 
         if (colorCycleCoroutine != null)
         {
             StopCoroutine(colorCycleCoroutine);
             colorCycleCoroutine = null;
         }
-        // isRunning = false deve ser feito apenas se quisermos forçar um reset completo. 
-        // Para permitir o OnEnable retomar, mantemos o estado.
     }
 
     IEnumerator ColorCycle()
     {
-        if (!isRunning) yield break;
-
-        while (isRunning)
+        while (true)
         {
             if (sequenceIndex >= colorSequence.Count)
             {
@@ -85,7 +66,9 @@ public class CircularColorTween : MonoBehaviour
 
             Color nextColor = colorSequence[sequenceIndex];
 
-            if (targetImage.color != Color.white)
+            bool isStartingWhite = (targetImage.color == Color.white && firstCycle);
+
+            if (!isStartingWhite)
             {
                 float holdTime = Random.Range(minHoldTime, maxHoldTime);
                 yield return new WaitForSeconds(holdTime);
@@ -93,9 +76,9 @@ public class CircularColorTween : MonoBehaviour
 
             float tweenDuration = Random.Range(minTweenSpeed, maxTweenSpeed);
 
-            targetImage.DOColor(nextColor, tweenDuration).SetEase(Ease.InOutQuad).SetId(this);
-
-            yield return new WaitForSeconds(tweenDuration);
+            yield return targetImage.DOColor(nextColor, tweenDuration)
+                .SetEase(Ease.InOutQuad)
+                .WaitForCompletion();
 
             sequenceIndex++;
         }
@@ -113,7 +96,7 @@ public class CircularColorTween : MonoBehaviour
             colorSequence[n] = value;
         }
 
-        if (colorSequence[0] == targetImage.color)
+        if (IsColorSimilar(colorSequence[0], targetImage.color))
         {
             if (colorSequence.Count > 1)
             {
@@ -122,5 +105,12 @@ public class CircularColorTween : MonoBehaviour
                 colorSequence[1] = temp;
             }
         }
+    }
+
+    private bool IsColorSimilar(Color a, Color b)
+    {
+        return Mathf.Abs(a.r - b.r) < 0.01f &&
+               Mathf.Abs(a.g - b.g) < 0.01f &&
+               Mathf.Abs(a.b - b.b) < 0.01f;
     }
 }

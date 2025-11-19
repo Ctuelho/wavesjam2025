@@ -81,6 +81,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
             targetSlot = observerDroppedOn.CurrentSlot;
             observerDroppedOn.CurrentSlot.RemoveObserver();
+            observerDroppedOn.ReturnToManager();
             targetSlot.HandleObserverDrop(this);
             return;
         }

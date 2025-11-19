@@ -1,11 +1,21 @@
-// WavesManager.cs
 using UnityEngine;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using System.Linq;
+using System.IO;
 
 public class WavesManager : MonoBehaviour
 {
+    [System.Serializable]
+    public class CollapsedGridData
+    {
+        public int levelId;
+        public string levelName;
+        public int width;
+        public int height;
+        public float[] flattenedCollapseValues;
+    }
+
     public ObserversManager ObserversManager;
 
     public static int GridSize;
@@ -25,7 +35,6 @@ public class WavesManager : MonoBehaviour
 
     private GameObject frameObject;
     private List<Slot> slots = new List<Slot>();
-    // private const float GRID_SHIFT_X = 2f; // Removido
 
     [Header("Left Side Sprite")]
     public SpriteRenderer LeftSpriteRenderer;
@@ -86,6 +95,14 @@ public class WavesManager : MonoBehaviour
         running = false;
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F4))
+        {
+            SaveCurrentGridState();
+        }
+    }
+
     void LateUpdate()
     {
         if (running)
@@ -103,11 +120,6 @@ public class WavesManager : MonoBehaviour
                     Time.deltaTime * CameraTweenSpeed
                 );
             }
-
-            //if (LeftSpriteRenderer != null)
-            //{
-            //    UpdateLeftSpritePosition();
-            //}
         }
     }
 
@@ -115,7 +127,7 @@ public class WavesManager : MonoBehaviour
     {
         CancelInvoke();
         DeleteExistingWaves();
-
+        LeftSpriteRenderer.gameObject.SetActive( true );
         GridSize = size;
         int x, y;
         x = y = size;
@@ -124,7 +136,7 @@ public class WavesManager : MonoBehaviour
 
         Graph = new Node[_gridX, _gridY];
 
-        float startX = -(_gridX - 1) * WaveSize / 2f; // Ajustado
+        float startX = -(_gridX - 1) * WaveSize / 2f;
         float startY = -(_gridY - 1) * WaveSize / 2f;
 
         for (int i = 0; i < _gridX; i++)
@@ -172,13 +184,13 @@ public class WavesManager : MonoBehaviour
 
         CreateFrameAndSlots(_gridX, _gridY, startX, startY);
 
-        //UpdateLeftSpritePosition();
-
         InvokeRepeating("Collapse", WaveDelay, WaveDelay);
     }
 
     void DeleteExistingWaves()
     {
+        LeftSpriteRenderer.gameObject.SetActive(false);
+
         if (Graph != null)
         {
             for (int i = 0; i < _gridX; i++)
@@ -243,27 +255,62 @@ public class WavesManager : MonoBehaviour
         targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z);
     }
 
-    //public void FitCameraToBounds(float gridMinX, float gridMaxX, float observersMaxX, float totalVisibleHeight)
-    //{
-    //    if (TargetCamera == null) return;
+    public void SaveCurrentGridState()
+    {
+        if (Graph == null) return;
 
-    //    float cameraAspect = TargetCamera.aspect;
-    //    float desiredHeight = totalVisibleHeight + WaveSize;
-    //    float totalAreaMinX = gridMinX;
-    //    float totalAreaMaxX = observersMaxX;
-    //    float totalAreaWidth = totalAreaMaxX - totalAreaMinX;
+        CollapsedGridData data = new CollapsedGridData();
 
-    //    float desiredWidth = totalAreaWidth + WaveSize;
+        if (LevelManager.CurrentLevelData != null)
+        {
+            data.levelId = LevelManager.CurrentLevelData.levelId;
+            data.levelName = LevelManager.CurrentLevelData.levelName;
+        }
+        else
+        {
+            data.levelId = 0;
+            data.levelName = "UnknownLevel";
+        }
 
-    //    float requiredVerticalSizeForHeight = desiredHeight / 2f;
-    //    float requiredVerticalSizeForWidth = desiredWidth / cameraAspect / 2f;
+        data.width = _gridX;
+        data.height = _gridY;
 
-    //    targetOrthoSize = Mathf.Max(requiredVerticalSizeForHeight, requiredVerticalSizeForWidth);
+        data.flattenedCollapseValues = new float[_gridX * _gridY];
 
-    //    float totalAreaCenterX = (totalAreaMinX + totalAreaMaxX) / 2f;
+        for (int i = 0; i < _gridX; i++)
+        {
+            for (int j = 0; j < _gridY; j++)
+            {
+                int flatIndex = i * _gridY + j;
 
-    //    targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z);
-    //}
+                if (Graph[i, j] != null && Graph[i, j].wave != null)
+                {
+                    data.flattenedCollapseValues[flatIndex] = Graph[i, j].wave.Collapse;
+                }
+                else
+                {
+                    data.flattenedCollapseValues[flatIndex] = 0f;
+                }
+            }
+        }
+
+        string json = JsonUtility.ToJson(data, true);
+        string folderPath = Application.dataPath + "/PrintedLevels";
+
+        if (!Directory.Exists(folderPath))
+        {
+            Directory.CreateDirectory(folderPath);
+        }
+
+        string fileName = $"Level_{data.levelId}_{data.levelName}.json";
+        string fullPath = Path.Combine(folderPath, fileName);
+
+        File.WriteAllText(fullPath, json);
+
+#if UNITY_EDITOR
+        UnityEditor.AssetDatabase.Refresh();
+#endif
+    }
 
     public void Collapse()
     {
@@ -612,30 +659,16 @@ public class WavesManager : MonoBehaviour
 
         LeftSpriteRenderer.transform.localScale = Vector3.one * LeftSpriteSize;
 
-        // A Grid (WavesManager) está em X=0.
-        // gridFrameMinX é o canto esquerdo do frame interno da Grid.
-        // O Left Sprite precisa estar à esquerda disso.
-
-        // A borda direita do LS deve tocar o canto esquerdo do Grid Frame, mais o paddingX.
-        // Borda Direita do LS = gridFrameMinX - paddingX
-
-        // Posição Central do LS = (Borda Direita do LS) - (LeftSpriteSize / 2)
         float leftSpriteMaxXTarget = gridFrameMinX - paddingX;
         float finalPosX = leftSpriteMaxXTarget - (LeftSpriteSize / 2f);
 
-        // Y do Left Sprite deve estar centralizado com a Grid
-        float finalPosY = transform.position.y; // Assumindo WavesManager está em Y=0
+        float finalPosY = transform.position.y;
 
         LeftSpriteRenderer.transform.position = new Vector3(finalPosX, finalPosY, 0);
     }
 
-    // Função para o LevelManager calcular o offset da Grid
     public float GetGridStartX(float gridMinXLocal)
     {
-        // gridMinXLocal é a coordenada X do canto esquerdo da Wave (i=0) se fosse centrada em X=0.
-        // O valor é - (GridSize - 1) * WaveSize / 2f.
-
-        // O LevelManager deve calcular o offset, não o WavesManager.
         return 0f;
     }
 }
