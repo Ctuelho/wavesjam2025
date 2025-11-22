@@ -1,11 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine.EventSystems;
 
 public class Slot : MonoBehaviour
 {
-    // ... (vari�veis existentes)
+    // ... (variáveis existentes)
     public int GridX;
     public int GridY;
     public Observer CurrentObserver;
@@ -43,6 +43,7 @@ public class Slot : MonoBehaviour
         CurrentObserver = observer;
         if (CurrentObserver != null)
         {
+            CurrentDecayType = CurrentObserver.decay;
             CurrentObserver.CurrentSlot = this;
             CurrentObserver.transform.position = transform.position;
 
@@ -62,7 +63,7 @@ public class Slot : MonoBehaviour
     {
         if (CurrentObserver != null)
         {
-            // OMITIDO: Chamada a DestroyWaveEffects(), pois o ciclo de vida � externo.
+            // OMITIDO: Chamada a DestroyWaveEffects(), pois o ciclo de vida é externo.
 
             DestroyEffectObject();
 
@@ -94,7 +95,7 @@ public class Slot : MonoBehaviour
         }
     }
 
-    // ... (M�todos UpdateObserverRotation, InstantiateEffectObject, DestroyEffectObject e HandleObserverDrop permanecem inalterados)
+    // ... (Métodos UpdateObserverRotation, InstantiateEffectObject, DestroyEffectObject e HandleObserverDrop permanecem inalterados)
 
     private void UpdateObserverRotation(Transform observerTransform)
     {
@@ -129,16 +130,31 @@ public class Slot : MonoBehaviour
     {
         if (ObserverControllerPrefab != null && _currentObserverController == null)
         {
+            // 1. Instancia o prefab, definindo o 'parentTransform' (o Observer)
             _currentObserverController = Instantiate(ObserverControllerPrefab, parentTransform);
-
+            var controller = _currentObserverController.GetComponent<ObserverController>();
+            controller.SetTargetSlot(this);
+            // 2. Garante que a POSIÇÃO LOCAL seja zero (fica centralizado no Observer)
             _currentObserverController.transform.localPosition = Vector3.zero;
 
-            _currentObserverController.transform.localRotation = Quaternion.identity;
+            // 3. Garante que a ROTAÇÃO LOCAL seja zero (Quaternion.identity).
+            // Isto faz com que ele herde a ROTAÇÃO GLOBAL do pai (Observer),
+            // mas depois a ZERA, mantendo sua orientação na identidade do mundo,
+            // desde que o Observer não esteja no mundo rodado.
+            _currentObserverController.transform.localRotation = Quaternion.identity; // <--- Rotação local zerada
+
+            // 4. Se o Observer já estiver rotacionado (ex: 90 graus), o controller TAMBÉM
+            // estará rotacionado 90 graus. Para COMPENSAR a rotação do PAI,
+            // você precisa ZERAR a rotação *global* OU desanexá-lo imediatamente,
+            // mas o mais simples é garantir que a rotação local seja zero e 
+            // que a rotação do Observer seja baseada no mundo.
+
+            // ⚠️ O método mais robusto: Instanciar no pai, mas garantir que a ROTAÇÃO GLOBAL seja a identidade.
+            _currentObserverController.transform.rotation = Quaternion.identity; // <--- ZERA a rotação GLOBAL (o mais importante)
 
             _currentObserverController.name = $"Controller_{parentTransform.gameObject.name}";
         }
     }
-
     private void DestroyEffectObject()
     {
         if (_currentObserverController != null)

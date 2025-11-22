@@ -47,6 +47,9 @@ TagManager:
   - name: slots
     uniqueID: 3972280463
     locked: 0
+  - name: controller
+    uniqueID: 1272157583
+    locked: 0
   m_RenderingLayers:
   - Default
   - Light Layer 1

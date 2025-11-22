@@ -520,8 +520,6 @@ public class WavesManager : MonoBehaviour
         // 1. Limpa todas as influências anteriores (Isso é obrigatório para evitar duplicatas)
         RemoveInfluenceSource(observer);
 
-        // ⚠️ OMITIDO: A limpeza de efeitos visuais (effectList.Clear() e Destroy(effect))
-
         Slot.DecayType decayType = slot.CurrentDecayType;
         int observerRange = observer.range;
         Slot.DirectionType direction = slot.Direction;
@@ -585,26 +583,51 @@ public class WavesManager : MonoBehaviour
         {
             Wave wave = wavesToAffect[i];
 
-            // Aplicação da Influência
+            // Aplicação da Influência e CÁLCULO DA TRANSPARÊNCIA
             float decayFactor = CalculateDecayFactor(decayType, i, totalWavesAffected);
             float influenceValue = decayFactor * observer.force;
-            Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
-            wave.AddInfluence(influence);
 
-            // Criação do Efeito Visual
-            if (effectPrefab != null)
+            // ⚠️ NOVO: A transparência do efeito e do flash é baseada no valor da influência.
+            float effectAlpha = influenceValue;
+
+            // -----------------------------------------------------------
+            // 1. CONDIÇÃO DE INSTANCIAÇÃO: Só continua se houver influência.
+            // -----------------------------------------------------------
+            if (true)//effectAlpha > 0.001f)
             {
-                // O efeito é instanciado e o gerenciamento do seu ciclo de vida
-                // e destruição é delegado a um script externo.
-                GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
-                effect.transform.localScale = Vector3.one * WaveSize;
-                effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
-                effect.transform.SetParent(transform);
+                Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
+                wave.AddInfluence(influence);
 
-                // ⚠️ OMITIDO: Adicionar à effectList
+                // Criação do Efeito Visual
+                if (effectPrefab != null)
+                {
+                    GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
+                    effect.transform.localScale = Vector3.one * WaveSize;
+                    effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
+                    effect.transform.SetParent(transform);
+
+                    // Configura a TRANSPARÊNCIA do efeito (se tiver SpriteRenderer)
+                    SpriteRenderer sr = effect.GetComponent<SpriteRenderer>();
+                    if (sr != null)
+                    {
+                        Color color = sr.color;
+                        color.a = effectAlpha; // Define a transparência (Alpha)
+                        sr.color = color;
+                    }
+
+                    // Configura o FadingDestruction (para o flash)
+                    FadingDestruction fd = effect.GetComponent<FadingDestruction>();
+                    if (fd != null)
+                    {
+                        // ⚠️ NOVO: Passa a transparência/influência como Alpha FINAL para o flash
+                        // (O Alpha inicial pode ser 1.0f para o "flash")
+                        fd.SetFadeProperties(1.0f, effectAlpha);
+                    }
+                }
             }
         }
     }
+
     public void RemoveInfluenceSource(object source)
     {
         if (Graph == null || source == null) return;

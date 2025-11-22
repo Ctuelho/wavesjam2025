@@ -10,8 +10,8 @@ public class ObserversManager : MonoBehaviour
     public float ObserverSize = 1f;
 
     [Header("Layout")]
-    [Tooltip("O espaçamento entre as colunas dos slots de observer.")]
-    public float ColumnSpacing = 0.1f;
+    [Tooltip("O espaçamento entre linhas e colunas dos slots de observer.")]
+    public float SlotSpacing = 0.1f; // <-- RENOMEADO para refletir uso 2D
 
     [Header("Visual Feedback")]
     [Tooltip("Sprite a ser usado para o fundo da área de observers.")]
@@ -27,10 +27,8 @@ public class ObserversManager : MonoBehaviour
 
     private float _waveSize;
     private List<Observer> _currentObservers = new List<Observer>();
-
     private float _maxColumnHeight;
 
-    // Referências visuais
     private GameObject _backgroundInstance;
     private List<GameObject> _slotInstances = new List<GameObject>();
 
@@ -40,7 +38,6 @@ public class ObserversManager : MonoBehaviour
         _waveSize = waveSize;
         _maxColumnHeight = gridSize * _waveSize;
 
-        // Destruição dos Observers existentes
         foreach (var obs in _currentObservers)
         {
             if (obs != null)
@@ -50,7 +47,6 @@ public class ObserversManager : MonoBehaviour
         TotalHeight = 0f;
         TotalWidth = 0f;
 
-        // Limpa visuais antigos
         ClearVisuals();
 
         transform.localScale = Vector3.one * ObserverSize;
@@ -58,7 +54,6 @@ public class ObserversManager : MonoBehaviour
 
     public void Observe(List<GameObject> observerPrefabs)
     {
-        // ... (limpa observers existentes)
         foreach (var obs in _currentObservers)
         {
             if (obs != null)
@@ -149,18 +144,28 @@ public class ObserversManager : MonoBehaviour
         }
 
         // --- CÁLCULO DE LAYOUT ---
-        int maxObserversPerColumn = Mathf.FloorToInt(_maxColumnHeight / ObserverSize);
+        float spacing = SlotSpacing; // Usa o espaçamento único para linhas e colunas
+
+        // 1. Cálculo da Altura Máxima da Coluna (agora considera o espaçamento vertical)
+        // Observamos o tamanho da coluna sem o espaçamento entre elementos
+        float maxAvailableVerticalSpace = _maxColumnHeight;
+
+        // A altura de um elemento + espaçamento é (ObserverSize + spacing).
+        // Contamos quantos blocos cabem, arredondando para baixo.
+        int maxObserversPerColumn = Mathf.FloorToInt((maxAvailableVerticalSpace + spacing) / (ObserverSize + spacing));
         maxObserversPerColumn = Mathf.Max(1, maxObserversPerColumn);
 
         int numColumns = Mathf.CeilToInt((float)totalObserverCount / maxObserversPerColumn);
 
-        float columnSpacing = ColumnSpacing;
+        // 2. Cálculo da Altura Total (Baseada na coluna mais alta)
+        int numRows = Mathf.Min(totalObserverCount, maxObserversPerColumn); // Número de linhas na coluna mais alta
 
-        // Largura total ocupada: (Número de colunas * ObserverSize) + (Número de espaços entre colunas * Spacing)
-        TotalWidth = numColumns * ObserverSize + (numColumns - 1) * columnSpacing;
+        // Altura Total: (Número de linhas * ObserverSize) + (Número de espaços entre linhas * Spacing)
+        TotalHeight = numRows * ObserverSize + (numRows - 1) * spacing;
 
-        // Altura total ocupada (Baseada no número de Observers na coluna mais alta)
-        TotalHeight = Mathf.Min(totalObserverCount, maxObserversPerColumn) * ObserverSize;
+        // 3. Cálculo da Largura Total
+        // Largura Total: (Número de colunas * ObserverSize) + (Número de espaços entre colunas * Spacing)
+        TotalWidth = numColumns * ObserverSize + (numColumns - 1) * spacing;
 
         // Offset centralizado:
         float baseOffsetX = -(TotalWidth / 2f) + (ObserverSize / 2f);
@@ -171,36 +176,42 @@ public class ObserversManager : MonoBehaviour
             SpriteRenderer bgRenderer = CreateSprite("Background Area", BackgroundSprite, BackgroundColor, -2);
             _backgroundInstance = bgRenderer.gameObject;
 
-            // Calculamos o Padding para o fundo
-            float paddingX = columnSpacing;
-            float paddingY = ObserverSize * 0.1f;
+            // O fundo deve ser exatamente do tamanho TotalWidth e TotalHeight calculados.
+            // Não precisamos de padding adicional se quisermos que ele contenha APENAS os slots.
 
-            // A escala deve cobrir o TotalWidth/Height MAIS o Padding.
-            float backgroundScaleX = (TotalWidth + paddingX) / ObserverSize;
-            float backgroundScaleY = (TotalHeight + paddingY) / ObserverSize;
+            float backgroundScaleX = TotalWidth / ObserverSize;
+            float backgroundScaleY = TotalHeight / ObserverSize;
 
             // Centraliza o fundo no Y
+            // O centro vertical é 0, já que a posição dos slots deve ser simétrica em relação ao centro (0) do ObserversManager.
             float backgroundYPos = 0f;
 
             _backgroundInstance.transform.localPosition = new Vector3(0, backgroundYPos, 0);
 
-            // Aplica a escala ajustada
+            // Aplica a escala exata
             _backgroundInstance.transform.localScale = new Vector3(backgroundScaleX, backgroundScaleY, 1f);
         }
         // --- FIM Fundo da Área ---
 
-
-        // LOOP 1: Cria todos os slots visuais (totalObserverCount)
+        // Loop 1: Cria todos os slots visuais (totalObserverCount)
         for (int i = 0; i < totalObserverCount; i++)
         {
             int indexInColumn = i % maxObserversPerColumn;
             int columnIndex = i / maxObserversPerColumn;
 
-            float columnBaseY = (_maxColumnHeight / 2f) - (ObserverSize / 2f);
-            float yPos = columnBaseY - (indexInColumn * ObserverSize);
+            // --- POSICIONAMENTO Y AJUSTADO (agora usa TotalHeight para centralizar corretamente) ---
 
-            // A posição X deve incluir o espaçamento
-            float xPos = columnIndex * ObserverSize + columnIndex * columnSpacing;
+            // Encontra o topo da coluna de slots
+            float columnTop = TotalHeight / 2f;
+
+            // Calcula o ponto inicial para o primeiro slot (Topo - metade do ObserverSize)
+            float startY = columnTop - (ObserverSize / 2f);
+
+            // Posição Y com espaçamento vertical:
+            float yPos = startY - (indexInColumn * (ObserverSize + spacing));
+
+            // Posição X com espaçamento horizontal:
+            float xPos = columnIndex * (ObserverSize + spacing);
             xPos += baseOffsetX;
 
             // Criação do Slot Visual no local calculado
@@ -216,7 +227,7 @@ public class ObserversManager : MonoBehaviour
             }
         }
 
-        // LOOP 2: Reposiciona APENAS os Observers disponíveis
+        // Loop 2: Reposiciona APENAS os Observers disponíveis
         for (int i = 0; i < availableObservers.Count; i++)
         {
             Observer observer = availableObservers[i];
@@ -224,13 +235,14 @@ public class ObserversManager : MonoBehaviour
             int indexInColumn = i % maxObserversPerColumn;
             int columnIndex = i / maxObserversPerColumn;
 
-            float columnBaseY = (_maxColumnHeight / 2f) - (ObserverSize / 2f);
-            float yPos = columnBaseY - (indexInColumn * ObserverSize);
+            // Calcula a posição Y e X novamente, garantindo que o Observer fique exatamente sobre o Slot
+            float columnTop = TotalHeight / 2f;
+            float startY = columnTop - (ObserverSize / 2f);
+            float yPos = startY - (indexInColumn * (ObserverSize + spacing));
 
-            float xPos = columnIndex * ObserverSize + columnIndex * columnSpacing;
+            float xPos = columnIndex * (ObserverSize + spacing);
             xPos += baseOffsetX;
 
-            // Ajusta a posição do Observer (usa as mesmas coordenadas do Slot)
             observer.transform.SetParent(this.transform);
             observer.transform.localPosition = new Vector3(xPos, yPos, 0);
             observer.transform.localScale = Vector3.one;

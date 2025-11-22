@@ -23,6 +23,8 @@ public class FadingDestruction : MonoBehaviour
     public float flashPercentage = 0.2f; // Se você quer que o flash seja em 20% do tempo
 
     private SpriteRenderer _spriteRenderer;
+    private float _initialAlpha = 0;
+    private float _targetAlpha;
 
     void Start()
     {
@@ -53,7 +55,7 @@ public class FadingDestruction : MonoBehaviour
 
         // 2. PASSO 1 (FLASH-UP): Vai de 0% para 100% (quase instantâneo)
         // Usamos Ease.OutSine para um flash que acelera rapidamente.
-        sequence.Append(_spriteRenderer.DOFade(1f, flashDuration)
+        sequence.Append(_spriteRenderer.DOFade(_targetAlpha, flashDuration)
             .SetEase(Ease.OutSine));
 
         // 3. PASSO 2 (DECAY): Vai de 100% para 0% (resto do tempo)
@@ -68,5 +70,11 @@ public class FadingDestruction : MonoBehaviour
         });
 
         sequence.Play();
+    }
+
+    public void SetFadeProperties(float startAlpha, float finalAlpha)
+    {
+        //_initialAlpha = startAlpha;
+        _targetAlpha = finalAlpha;
     }
 }

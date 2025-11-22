@@ -46,6 +46,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c38b060921b4b294eb7ce62e2411bad6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  GridX: 0
+  GridY: 0
+  CurrentObserver: {fileID: 0}
+  Corner: 0
+  Direction: 0
+  ObserverControllerPrefab: {fileID: 311129907889165838, guid: 29a4d21854ce5024d8bef10833c937a7, type: 3}
+  CurrentDecayType: 0
 --- !u!212 &6777228086896724907
 SpriteRenderer:
   m_ObjectHideFlags: 0
