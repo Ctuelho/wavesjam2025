@@ -8,13 +8,13 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     private Vector3 _startPosition;
     private Transform _startParent;
     private Collider2D _col;
+    public GameObject WaveEffectPrefab;
 
+    public bool CanRotate = true;
     public int range = 0;
     public int force = 0;
-    public DecayType decay = DecayType.DoesNotDecay;
+    public Slot.DecayType decay = Slot.DecayType.DoesNotDecay;
     internal ObserversManager manager;
-
-    public enum DecayType { DoesNotDecay = 0, Spread = 1, VerySlow = 2, Slow = 3, Medium = 4, Fast = 5, VeryFast = 6 }
 
     private void Awake()
     {

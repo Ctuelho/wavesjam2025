@@ -1073,6 +1073,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   WavesManager: {fileID: 0}
   ObserverSize: 1
+  ColumnSpacing: 0.1
+  BackgroundSprite: {fileID: 21300000, guid: 5e26a1edf9e2dc6459c8e0174497d979, type: 3}
+  BackgroundColor: {r: 0.5377358, g: 0.5377358, b: 0.5377358, a: 1}
+  SlotSprite: {fileID: 21300000, guid: bd2c7583202ff73409cbf8c14c1908b0, type: 3}
+  SlotColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
 --- !u!4 &113590164
 Transform:
   m_ObjectHideFlags: 0

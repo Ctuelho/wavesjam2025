@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using System.Linq;
@@ -88,6 +88,19 @@ public class WavesManager : MonoBehaviour
                 return value;
             }
         }
+
+        public int NeighborCount
+        {
+            get
+            {
+                if (neighborCountCache == 0)
+                {
+                    neighborCountCache = Neighbors.Count(n => n != null);
+                }
+                return neighborCountCache;
+            }
+        }
+        private int neighborCountCache = 0;
     }
 
     private void OnDisable()
@@ -257,41 +270,12 @@ public class WavesManager : MonoBehaviour
 
     public void SaveCurrentGridState()
     {
-        if (Graph == null) return;
+        CollapsedGridData data = GenerateCurrentGridData();
 
-        CollapsedGridData data = new CollapsedGridData();
-
-        if (LevelManager.CurrentLevelData != null)
+        if (data == null)
         {
-            data.levelId = LevelManager.CurrentLevelData.levelId;
-            data.levelName = LevelManager.CurrentLevelData.levelName;
-        }
-        else
-        {
-            data.levelId = 0;
-            data.levelName = "UnknownLevel";
-        }
-
-        data.width = _gridX;
-        data.height = _gridY;
-
-        data.flattenedCollapseValues = new float[_gridX * _gridY];
-
-        for (int i = 0; i < _gridX; i++)
-        {
-            for (int j = 0; j < _gridY; j++)
-            {
-                int flatIndex = i * _gridY + j;
-
-                if (Graph[i, j] != null && Graph[i, j].wave != null)
-                {
-                    data.flattenedCollapseValues[flatIndex] = Graph[i, j].wave.Collapse;
-                }
-                else
-                {
-                    data.flattenedCollapseValues[flatIndex] = 0f;
-                }
-            }
+            Debug.LogError("Failed to save, grid is not initialized.");
+            return;
         }
 
         string json = JsonUtility.ToJson(data, true);
@@ -306,12 +290,12 @@ public class WavesManager : MonoBehaviour
         string fullPath = Path.Combine(folderPath, fileName);
 
         File.WriteAllText(fullPath, json);
+        Debug.Log($"Grid state saved at: {fullPath}");
 
 #if UNITY_EDITOR
         UnityEditor.AssetDatabase.Refresh();
 #endif
     }
-
     public void Collapse()
     {
         if (Graph == null) return;
@@ -324,6 +308,7 @@ public class WavesManager : MonoBehaviour
             {
                 Node node = Graph[i, j];
                 node.wave.NeighborsInfluence = new Wave.Influence() { source = node.wave, value = node.NeighborsInfluence };
+                node.wave.CurrentNeighborCount = node.NeighborCount;
                 node.wave.SlowlyCollapse();
             }
         }
@@ -497,14 +482,14 @@ public class WavesManager : MonoBehaviour
         }
     }
 
-    private float CalculateDecayFactor(Observer.DecayType decayType, int waveIndex, int totalWavesAffected)
+    private float CalculateDecayFactor(Slot.DecayType decayType, int waveIndex, int totalWavesAffected)
     {
-        if (decayType == Observer.DecayType.DoesNotDecay)
+        if (decayType == Slot.DecayType.DoesNotDecay)
         {
             return 1f;
         }
 
-        if (decayType == Observer.DecayType.Spread)
+        if (decayType == Slot.DecayType.Spread)
         {
             if (totalWavesAffected <= 1) return 1f;
             return 1f - ((float)waveIndex / (totalWavesAffected - 1));
@@ -513,11 +498,11 @@ public class WavesManager : MonoBehaviour
         float decayRate;
         switch (decayType)
         {
-            case Observer.DecayType.VerySlow: decayRate = 0.1f; break;
-            case Observer.DecayType.Slow: decayRate = 0.2f; break;
-            case Observer.DecayType.Medium: decayRate = 0.3f; break;
-            case Observer.DecayType.Fast: decayRate = 0.4f; break;
-            case Observer.DecayType.VeryFast: decayRate = 0.5f; break;
+            case Slot.DecayType.VerySlow: decayRate = 0.1f; break;
+            case Slot.DecayType.Slow: decayRate = 0.2f; break;
+            case Slot.DecayType.Medium: decayRate = 0.3f; break;
+            case Slot.DecayType.Fast: decayRate = 0.4f; break;
+            case Slot.DecayType.VeryFast: decayRate = 0.5f; break;
             default: decayRate = 0f; break;
         }
 
@@ -525,10 +510,19 @@ public class WavesManager : MonoBehaviour
     }
 
 
-    public void ApplyObserverInfluence(Observer observer, Slot slot)
+    // ... (Dentro da classe WavesManager)
+
+    // Remove o parâmetro effectList
+    public void ApplyObserverInfluenceAndShowEffects(Observer observer, Slot slot, GameObject effectPrefab)
     {
         if (slot.CurrentObserver != observer || Graph == null) return;
 
+        // 1. Limpa todas as influências anteriores (Isso é obrigatório para evitar duplicatas)
+        RemoveInfluenceSource(observer);
+
+        // ⚠️ OMITIDO: A limpeza de efeitos visuais (effectList.Clear() e Destroy(effect))
+
+        Slot.DecayType decayType = slot.CurrentDecayType;
         int observerRange = observer.range;
         Slot.DirectionType direction = slot.Direction;
 
@@ -541,6 +535,7 @@ public class WavesManager : MonoBehaviour
 
         if (dx == 0 && dy == 0) return;
 
+        // --- (Lógica de Cálculo de Range (observerRange == 0) - Permanece inalterada) ---
         if (observerRange == 0)
         {
             if (dx != 0 && dy != 0)
@@ -558,10 +553,12 @@ public class WavesManager : MonoBehaviour
                 observerRange = (dy > 0) ? _gridY - (startWaveY + 1) : startWaveY;
             }
         }
+        // ----------------------------------------------------------------------------------------------------
 
         int currentX = startWaveX;
         int currentY = startWaveY;
 
+        // 2. Coleta as Waves afetadas
         for (int i = 0; i < observerRange; i++)
         {
             currentX += dx;
@@ -583,18 +580,31 @@ public class WavesManager : MonoBehaviour
 
         int totalWavesAffected = wavesToAffect.Count;
 
+        // 3. Aplica Influência e Cria Efeitos Visuais
         for (int i = 0; i < totalWavesAffected; i++)
         {
             Wave wave = wavesToAffect[i];
-            float decayFactor = CalculateDecayFactor(observer.decay, i, totalWavesAffected);
 
+            // Aplicação da Influência
+            float decayFactor = CalculateDecayFactor(decayType, i, totalWavesAffected);
             float influenceValue = decayFactor * observer.force;
-
             Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
             wave.AddInfluence(influence);
+
+            // Criação do Efeito Visual
+            if (effectPrefab != null)
+            {
+                // O efeito é instanciado e o gerenciamento do seu ciclo de vida
+                // e destruição é delegado a um script externo.
+                GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
+                effect.transform.localScale = Vector3.one * WaveSize;
+                effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
+                effect.transform.SetParent(transform);
+
+                // ⚠️ OMITIDO: Adicionar à effectList
+            }
         }
     }
-
     public void RemoveInfluenceSource(object source)
     {
         if (Graph == null || source == null) return;
@@ -670,5 +680,90 @@ public class WavesManager : MonoBehaviour
     public float GetGridStartX(float gridMinXLocal)
     {
         return 0f;
+    }
+
+    /// <summary>
+    /// Gera um objeto CollapsedGridData que representa o estado atual da grid.
+    /// </summary>
+    /// <returns>CollapsedGridData da grid atual, ou null se a grid não estiver inicializada.</returns>
+    private CollapsedGridData GenerateCurrentGridData()
+    {
+        if (Graph == null) return null;
+
+        CollapsedGridData data = new CollapsedGridData
+        {
+            width = _gridX,
+            height = _gridY,
+            flattenedCollapseValues = new float[_gridX * _gridY]
+        };
+
+        if (LevelManager.CurrentLevelData != null)
+        {
+            // Assumindo que LevelManager é acessível e CurrentLevelData existe
+            data.levelId = LevelManager.CurrentLevelData.levelId;
+            data.levelName = LevelManager.CurrentLevelData.levelName;
+        }
+        else
+        {
+            data.levelId = 0;
+            data.levelName = "UnknownLevel";
+        }
+
+        for (int i = 0; i < _gridX; i++)
+        {
+            for (int j = 0; j < _gridY; j++)
+            {
+                int flatIndex = i * _gridY + j;
+
+                if (Graph[i, j] != null && Graph[i, j].wave != null)
+                {
+                    // Captura o valor de colapso da Wave
+                    data.flattenedCollapseValues[flatIndex] = Graph[i, j].wave.Collapse;
+                }
+                else
+                {
+                    data.flattenedCollapseValues[flatIndex] = 0f;
+                }
+            }
+        }
+
+        return data;
+    }
+
+    public bool CompareGridData(CollapsedGridData comparisonData)
+    {
+        CollapsedGridData currentData = GenerateCurrentGridData();
+
+        if (currentData == null)
+        {
+            Debug.LogError("Current grid is not initialized.");
+            return false;
+        }
+
+        if (currentData.width != comparisonData.width || currentData.height != comparisonData.height)
+        {
+            Debug.LogError("Cannot compare, grids sizes does not match.");
+            return false;
+        }
+
+        int totalSize = currentData.width * currentData.height;
+
+        if (currentData.flattenedCollapseValues.Length != comparisonData.flattenedCollapseValues.Length)
+        {
+            Debug.LogError("Grid arrays do not match.");
+            return false;
+        }
+
+        for (int i = 0; i < totalSize; i++)
+        {
+            if (!Mathf.Approximately(currentData.flattenedCollapseValues[i], comparisonData.flattenedCollapseValues[i]))
+            {
+                
+                return false;
+            }
+        }
+
+        Debug.Log("Sucesso na comparação: As grids são idênticas!");
+        return true;
     }
 }

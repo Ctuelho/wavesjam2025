@@ -1,45 +1,21 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class ObserverController : MonoBehaviour
 {
-    private Observer observer;
+    private Slot targetSlot;
 
-    void Awake()
+    public void SetTargetSlot(Slot slot)
     {
-        Transform currentParent = transform.parent;
-
-        while (currentParent != null)
-        {
-            observer = currentParent.GetComponent<Observer>();
-
-            if (observer != null)
-            {
-                Debug.Log("Observer found at: " + currentParent.name);
-                break;
-            }
-
-            currentParent = currentParent.parent;
-        }
-
-        if (observer == null)
-        {
-            Debug.LogError("Observer not found.");
-        }
+        targetSlot = slot;
     }
 
-    public void IncreaseObserverParameter()
+    // Este método seria chamado pelo Evento OnClick de um botão na UI do Controller
+    public void OnCycleButtonClicked()
     {
-        if(observer != null)
+        if (targetSlot != null)
         {
-            observer.IncreaseRange();
-        }
-    }
-
-    public void DecreaseObserverParameter()
-    {
-        if (observer != null)
-        {
-            observer.DecreaseRange();
+            targetSlot.CycleDecayType();
         }
     }
 }

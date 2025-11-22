@@ -47,6 +47,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 131b1f3cc23e32441b11bf2a2e0c73e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  WaveEffectPrefab: {fileID: 1419075672708548832, guid: 748a432e495574f43a947bf25a86949f, type: 3}
+  CanRotate: 1
   range: 0
   force: 2
   decay: 0

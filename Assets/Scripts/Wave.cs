@@ -26,6 +26,8 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     private float currentAlpha = 0.0f;
     public float AlphaFadeInSpeed = 0.5f;
 
+    public int CurrentNeighborCount;
+
     private void Awake()
     {
         if (Renderer == null)
@@ -63,6 +65,10 @@ public class Wave : MonoBehaviour, IPointerClickHandler
 
     public void SlowlyCollapse()
     {
+        // 1. Resetar o targetCollapse para zero no início do cálculo.
+        targetCollapse = 0.0f;
+
+        // 2. Acumular Influências Externas e Internas
         foreach (var influence in Influences)
         {
             if (influence.source != null)
@@ -70,18 +76,34 @@ public class Wave : MonoBehaviour, IPointerClickHandler
                 targetCollapse += influence.value;
             }
         }
-        targetCollapse += NeighborsInfluence.value;
-        targetCollapse /= (float)(8 + Influences.Count);
 
+        // 3. Adicionar a influência total dos vizinhos (já somada no WavesManager)
+        targetCollapse += NeighborsInfluence.value;
+
+        // 4. Calcular o Divisor Dinâmico
+        // Usa o CurrentNeighborCount (real número de vizinhos não nulos) + o número de Influências internas/externas.
+        float divisor = (float)CurrentNeighborCount + Influences.Count;
+
+        if (divisor > 0)
+        {
+            targetCollapse /= divisor;
+        }
+        else
+        {
+            // Se o nó não tem vizinhos e nenhuma influência, tende a zero.
+            targetCollapse = 0.0f;
+        }
+
+        // 5. Interpolação e Clamp
         targetCollapse = Mathf.Clamp01(targetCollapse);
         Collapse = Mathf.Lerp(Collapse, targetCollapse, Time.deltaTime * CollapseSpeed);
         Collapse = Mathf.Clamp(Collapse, 0f, 1f);
 
+        // 6. Lógica de Visualização
         currentAlpha = Mathf.MoveTowards(currentAlpha, 1f, Time.deltaTime * AlphaFadeInSpeed);
         currentAlpha = Mathf.Clamp01(currentAlpha);
 
         Color newColor = ColorGradient.Evaluate(Collapse);
-        //newColor.a = currentAlpha;
         Renderer.color = newColor;
     }
 
