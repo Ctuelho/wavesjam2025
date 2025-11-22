@@ -17,7 +17,8 @@ public class WavesManager : MonoBehaviour
     }
 
     public ObserversManager ObserversManager;
-
+    [Header("Grid Comparison")]
+    public float ComparisonRange = 0.2f;
     public static int GridSize;
 
     public GameObject WavePrefab;
@@ -829,36 +830,53 @@ public class WavesManager : MonoBehaviour
         return data;
     }
 
-    public bool CompareGridData(CollapsedGridData comparisonData)
+    public float GetGridSimilarity(CollapsedGridData comparisonData)
     {
         CollapsedGridData currentData = GenerateCurrentGridData();
 
         if (currentData == null)
         {
-            return false;
+            Debug.LogError("Current grid is null, cannot compare.");
+            return 0f;
         }
 
         if (currentData.width != comparisonData.width || currentData.height != comparisonData.height)
         {
-            return false;
+            Debug.LogError("Grid dimensions do not match target data. Comparison impossible.");
+            return 0f;
         }
 
         int totalSize = currentData.width * currentData.height;
+        float totalSimilarity = 0f;
 
         if (currentData.flattenedCollapseValues.Length != comparisonData.flattenedCollapseValues.Length)
         {
-            return false;
+            Debug.LogError("Flattened arrays size mismatch.");
+            return 0f;
         }
 
         for (int i = 0; i < totalSize; i++)
         {
-            if (!Mathf.Approximately(currentData.flattenedCollapseValues[i], comparisonData.flattenedCollapseValues[i]))
-            {
+            float currentVal = currentData.flattenedCollapseValues[i];
+            float targetVal = comparisonData.flattenedCollapseValues[i];
 
-                return false;
-            }
+            // 1. Calcula a diferença absoluta
+            float difference = Mathf.Abs(currentVal - targetVal);
+
+            // 2. Normaliza a diferença pelo ComparisonRange para obter o Erro (0.0 = 0% erro; 1.0 = 100% erro no range)
+            // Usamos Mathf.Max(ComparisonRange, 0.0001f) para evitar divisão por zero, caso o range seja 0
+            float normalizedError = difference / Mathf.Max(ComparisonRange, 0.0001f);
+
+            // 3. Converte Erro em Similaridade (1.0 = 100% acerto, 0.0 = 0% acerto ou pior)
+            // Clamp(0f, 1f) garante que a similaridade nunca seja negativa
+            float similarity = Mathf.Clamp01(1f - normalizedError);
+
+            totalSimilarity += similarity;
         }
 
-        return true;
+        // Retorna a média das similaridades
+        float averageSimilarity = totalSimilarity / totalSize;
+        averageSimilarity = Mathf.Ceil(averageSimilarity);
+        return averageSimilarity;
     }
 }

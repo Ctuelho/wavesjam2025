@@ -16,8 +16,13 @@ public class LevelManager : MonoBehaviour
         public TextAsset target;
     }
 
-    public static LevelData CurrentLevelData;
+    [Header("Rating Thresholds (0.0 to 1.0)")]
+    public float OneStarThreshold = 0.60f;
+    public float TwoStarsThreshold = 0.80f;
+    public float ThreeStarsThreshold = 0.90f;
 
+    public static LevelData CurrentLevelData;
+    public LevelFeedbackUI levelFeedbackUI;
     [Header("Dependencies")]
     public WavesManager wavesManager;
     public ObserversManager observersManager;
@@ -37,6 +42,10 @@ public class LevelManager : MonoBehaviour
         {
             Level.ClearSave();
         }
+        else if(Input.GetKeyUp (KeyCode.F6))
+        {
+            levelFeedbackUI.StartLevelEvaluation();
+        }
     }
 
     private void Start()
@@ -54,7 +63,10 @@ public class LevelManager : MonoBehaviour
 
         wavesManager.WaveSize = WaveSize;
         wavesManager.CreateGrid(CurrentLevelData.gridSize);
-        wavesManager.Drawer.DrawGridFromData(CurrentLevelData.target.text);
+        if(CurrentLevelData.target != null)
+        {
+            wavesManager.Drawer.DrawGridFromData(CurrentLevelData.target.text);
+        }        
         observersManager.Observe(CurrentLevelData.observers);
 
         AdjustCameraAndPositions();
@@ -164,5 +176,63 @@ public class LevelManager : MonoBehaviour
         CurrentLevelData.observers = selectedLevel.observers.ToList();
         CurrentLevelData.target = selectedLevel.target;
         CurrentLevelData.gridSize = selectedLevel.gridSize;
+    }
+
+    public int EvaluateLevelRating()
+    {
+        if (CurrentLevelData == null || CurrentLevelData.target == null)
+        {
+            Debug.LogWarning("Level data or target is missing. Returning 0 stars.");
+            return 0;
+        }
+
+        // 1. Desserializar o JSON alvo para o objeto CollapsedGridData
+        WavesManager.CollapsedGridData targetData;
+        try
+        {
+            targetData = JsonUtility.FromJson<WavesManager.CollapsedGridData>(CurrentLevelData.target.text);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to deserialize target JSON for rating: {e.Message}");
+            return 0;
+        }
+
+        if (wavesManager == null)
+        {
+            Debug.LogError("WavesManager is null.");
+            return 0;
+        }
+
+        // 2. Calcular a similaridade (0.0 a 1.0)
+        float similarity = wavesManager.GetGridSimilarity(targetData);
+
+        Debug.Log($"Level Evaluation Complete: Similarity = {similarity * 100:F2}%");
+
+        // 3. Converter a similaridade em estrelas
+        int stars = ConvertSimilarityToStars(similarity);
+
+        return stars;
+    }
+
+    public int ConvertSimilarityToStars(float similarity)
+    {
+        // A ordem é importante: Começamos pelo maior threshold.
+        if (similarity >= ThreeStarsThreshold)
+        {
+            return 3;
+        }
+        else if (similarity >= TwoStarsThreshold)
+        {
+            return 2;
+        }
+        else if (similarity >= OneStarThreshold)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
     }
 }

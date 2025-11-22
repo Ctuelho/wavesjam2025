@@ -7,6 +7,7 @@ using System.Data;
 public class Level : MonoBehaviour, IPointerClickHandler
 {
     public static Level SelectedLevel;
+    public CollapsedGridDrawerUI drawerUI;
 
     [Header("Visual Settings")]
     public Image backgroundImage;
@@ -45,6 +46,10 @@ public class Level : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    private void OnEnable()
+    {
+        UpdateVisualState();
+    }
     private void OnValidate()
     {
         levelName = name;
@@ -107,6 +112,10 @@ public class Level : MonoBehaviour, IPointerClickHandler
     private void Start()
     {
         UpdateVisualState();
+        if (target != null)
+        {
+            drawerUI.DrawGridFromData(target.text);
+        }
     }
 
     public void OnPointerClick(PointerEventData eventData)
