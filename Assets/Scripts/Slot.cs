@@ -47,13 +47,22 @@ public class Slot : MonoBehaviour
             CurrentObserver.CurrentSlot = this;
             CurrentObserver.transform.position = transform.position;
 
-            UpdateObserverRotation(CurrentObserver.transform);
+            // ⚠️ NOVO: Só rotaciona se o tipo de influência for Line.
+            if (CurrentObserver.influenceType == Observer.InfluenceType.Line)
+            {
+                UpdateObserverRotation(CurrentObserver.transform);
+            }
+            else
+            {
+                // Se for Radius, garante que a rotação seja zero.
+                CurrentObserver.transform.rotation = Quaternion.identity;
+            }
 
             InstantiateEffectObject(CurrentObserver.transform);
 
             if (_manager != null)
             {
-                // Chamada simplificada, sem passar a lista de efeitos.
+                // Chamada agora vai para o dispatcher no WavesManager
                 _manager.ApplyObserverInfluenceAndShowEffects(CurrentObserver, this, CurrentObserver.WaveEffectPrefab);
             }
         }
@@ -95,11 +104,11 @@ public class Slot : MonoBehaviour
         }
     }
 
-    // ... (Métodos UpdateObserverRotation, InstantiateEffectObject, DestroyEffectObject e HandleObserverDrop permanecem inalterados)
-
     private void UpdateObserverRotation(Transform observerTransform)
     {
         Observer observerScript = observerTransform.GetComponent<Observer>();
+
+        // Mantém a verificação CanRotate se o InfluenceType for Line (já tratado no AssignObserver)
         if (observerScript == null || !observerScript.CanRotate)
         {
             observerTransform.rotation = Quaternion.identity;

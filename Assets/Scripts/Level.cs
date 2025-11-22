@@ -22,7 +22,7 @@ public class Level : MonoBehaviour, IPointerClickHandler
     public int duration = 30;
     public List<GameObject> observers;
     public int gridSize = 3;
-    public Sprite target;
+    public TextAsset target;
 
     public Level OpensIf;
 

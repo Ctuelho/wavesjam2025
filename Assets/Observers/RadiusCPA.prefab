@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 39548939694748233}
   - component: {fileID: 2539656616343030808}
   m_Layer: 0
-  m_Name: CPA 1
+  m_Name: RadiusCPA
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -48,10 +48,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   WaveEffectPrefab: {fileID: 1419075672708548832, guid: 748a432e495574f43a947bf25a86949f, type: 3}
+  influenceType: 1
   CanRotate: 1
-  range: 0
-  force: -3
-  decay: 0
+  range: 5
+  force: -2
+  decay: 2
 --- !u!212 &39548939694748233
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -97,7 +98,7 @@ SpriteRenderer:
   m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 166b6108e7ebc81419611ce337588c11, type: 3}
-  m_Color: {r: 0, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 0.36068773, b: 0, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -220,7 +221,7 @@ SpriteRenderer:
   m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: f50f0dd798c636342a66bb739a0ad6ca, type: 3}
-  m_Color: {r: 0, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 0.43646848, b: 0, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0

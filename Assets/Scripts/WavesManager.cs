@@ -41,6 +41,8 @@ public class WavesManager : MonoBehaviour
     public float LeftSpriteSize = 3f;
     public float ScreenEdgePadding = 0.5f;
 
+    public CollapsedGridDrawer Drawer;
+
     [System.Serializable]
     public class Influence { public object source; public float value; }
 
@@ -138,9 +140,10 @@ public class WavesManager : MonoBehaviour
 
     public void CreateGrid(int size)
     {
+        Drawer.ClearPreviousDrawings();
         CancelInvoke();
         DeleteExistingWaves();
-        LeftSpriteRenderer.gameObject.SetActive( true );
+        LeftSpriteRenderer.gameObject.SetActive(true);
         GridSize = size;
         int x, y;
         x = y = size;
@@ -482,6 +485,27 @@ public class WavesManager : MonoBehaviour
         }
     }
 
+    private float CalculateDecayFactorRadial(Slot.DecayType decayType, float normalizedDistance)
+    {
+        if (decayType == Slot.DecayType.DoesNotDecay)
+        {
+            return 1f;
+        }
+
+        float decayExponent;
+        switch (decayType)
+        {
+            case Slot.DecayType.VerySlow: decayExponent = 0.5f; break;
+            case Slot.DecayType.Slow: decayExponent = 1.0f; break;
+            case Slot.DecayType.Medium: decayExponent = 1.5f; break;
+            case Slot.DecayType.Fast: decayExponent = 2.0f; break;
+            case Slot.DecayType.VeryFast: decayExponent = 3.0f; break;
+            default: decayExponent = 1.0f; break;
+        }
+
+        return Mathf.Pow(Mathf.Max(0f, 1f - normalizedDistance), decayExponent);
+    }
+
     private float CalculateDecayFactor(Slot.DecayType decayType, int waveIndex, int totalWavesAffected)
     {
         if (decayType == Slot.DecayType.DoesNotDecay)
@@ -505,9 +529,81 @@ public class WavesManager : MonoBehaviour
 
     public void ApplyObserverInfluenceAndShowEffects(Observer observer, Slot slot, GameObject effectPrefab)
     {
+        if (observer.influenceType == Observer.InfluenceType.Radius)
+        {
+            ApplyObserverRadiusInfluence(observer, slot, effectPrefab);
+        }
+        else
+        {
+            ApplyObserverLineInfluence(observer, slot, effectPrefab);
+        }
+    }
+
+    public void ApplyObserverRadiusInfluence(Observer observer, Slot slot, GameObject effectPrefab)
+    {
+        if (observer == null || slot == null || Graph == null) return;
+
+        RemoveInfluenceSource(observer);
+
+        float waveSize = WaveSize;
+        float observerRange = observer.range * waveSize;
+        float observerForce = observer.force;
+        Slot.DecayType decayType = slot.CurrentDecayType;
+
+        Vector3 observerPosition = slot.transform.position;
+
+        for (int i = 0; i < _gridX; i++)
+        {
+            for (int j = 0; j < _gridY; j++)
+            {
+                Wave wave = Graph[i, j].wave;
+                if (wave == null) continue;
+
+                float distance = Vector3.Distance(wave.transform.position, observerPosition);
+
+                if (observerRange == 0 || distance <= observerRange)
+                {
+                    float normalizedDistance = observerRange > 0 ? distance / observerRange : 0f;
+
+                    float decayFactor = CalculateDecayFactorRadial(decayType, normalizedDistance);
+
+                    float influenceValue = decayFactor * observerForce;
+                    float effectAlpha = Mathf.Abs(influenceValue);
+
+                    if (effectPrefab != null && effectAlpha > 0.001f)
+                    {
+                        Color effectColor = influenceValue > 0 ? Color.green : Color.red;
+
+                        Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
+                        wave.AddInfluence(influence);
+
+                        GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
+                        effect.transform.localScale = Vector3.one * WaveSize;
+                        effect.name = $"RadiusEffect_{observer.gameObject.name}_{i}_{j}";
+                        effect.transform.SetParent(transform);
+
+                        SpriteRenderer sr = effect.GetComponent<SpriteRenderer>();
+                        if (sr != null)
+                        {
+                            effectColor.a = effectAlpha;
+                            sr.color = effectColor;
+                        }
+
+                        FadingDestruction fd = effect.GetComponent<FadingDestruction>();
+                        if (fd != null)
+                        {
+                            fd.SetFadeProperties(1.0f, effectAlpha);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void ApplyObserverLineInfluence(Observer observer, Slot slot, GameObject effectPrefab)
+    {
         if (slot.CurrentObserver != observer || Graph == null) return;
 
-        // 1. Limpa todas as influências anteriores (Obrigatório para evitar duplicatas)
         RemoveInfluenceSource(observer);
 
         Slot.DecayType decayType = slot.CurrentDecayType;
@@ -523,7 +619,6 @@ public class WavesManager : MonoBehaviour
 
         if (dx == 0 && dy == 0) return;
 
-        // --- (Lógica de Cálculo de Range (observerRange == 0) - Permanece inalterada) ---
         if (observerRange == 0)
         {
             if (dx != 0 && dy != 0)
@@ -541,12 +636,10 @@ public class WavesManager : MonoBehaviour
                 observerRange = (dy > 0) ? _gridY - (startWaveY + 1) : startWaveY;
             }
         }
-        // ----------------------------------------------------------------------------------------------------
 
         int currentX = startWaveX;
         int currentY = startWaveY;
 
-        // 2. Coleta as Waves afetadas
         for (int i = 0; i < observerRange; i++)
         {
             currentX += dx;
@@ -568,79 +661,48 @@ public class WavesManager : MonoBehaviour
 
         int totalWavesAffected = wavesToAffect.Count;
 
-        // 3. Aplica Influência e Cria Efeitos Visuais
         for (int i = 0; i < totalWavesAffected; i++)
         {
             Wave wave = wavesToAffect[i];
 
-            // Aplicação da Influência e CÁLCULO DA TRANSPARÊNCIA
             float decayFactor = CalculateDecayFactor(decayType, i, totalWavesAffected);
             float influenceValue = decayFactor * observer.force;
 
-            // O valor Alpha é o VALOR ABSOLUTO da influência,
-            // garantindo que uma influência negativa ainda gere um efeito visível.
             float effectAlpha = Mathf.Abs(influenceValue);
 
-            // -----------------------------------------------------------
-            // 1. CONDIÇÃO DE INSTANCIAÇÃO: Só instancia se a influência for significativa.
-            // -----------------------------------------------------------
             if (effectPrefab != null && effectAlpha > 0.001f)
             {
-                // 2. DETERMINAÇÃO DA COR
                 Color effectColor;
 
-                // Assume-se que o Observer ou o ObserverManager tem as cores. 
-                // Se as cores estiverem no FadingDestruction, esta lógica precisa ser adaptada.
-                // Aqui, vou usar cores básicas para demonstração, mas você deve obter as cores do seu sistema.
                 if (influenceValue > 0)
                 {
-                    effectColor = Color.green; // Cor para influência positiva
+                    effectColor = Color.green;
                 }
                 else
                 {
-                    effectColor = Color.red; // Cor para influência negativa
+                    effectColor = Color.red;
                 }
 
                 Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
                 wave.AddInfluence(influence);
 
-                // Criação do Efeito Visual
                 GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
                 effect.transform.localScale = Vector3.one * WaveSize;
                 effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
                 effect.transform.SetParent(transform);
 
-                // Configura a COR e a TRANSPARÊNCIA do efeito (SpriteRenderer)
                 SpriteRenderer sr = effect.GetComponent<SpriteRenderer>();
                 if (sr != null)
                 {
-                    // Usa a cor determinada (positiva ou negativa)
-                    effectColor.a = effectAlpha; // Define a transparência (Alpha)
+                    effectColor.a = effectAlpha;
                     sr.color = effectColor;
                 }
 
-                // Configura o FadingDestruction (para o flash)
                 FadingDestruction fd = effect.GetComponent<FadingDestruction>();
                 if (fd != null)
                 {
-                    // Se o FadingDestruction precisa saber a cor de destino:
-                    // fd.PositiveColor e fd.NegativeColor são assumidos estar no FadingDestruction.
-
-                    // Opção 1: Se o FadingDestruction só usa a cor inicial do SpriteRenderer
-                    // O código acima já configura o sr.color.
-
-                    // Opção 2: Se o FadingDestruction precisa da cor para o fade
-                    // Se você tem os campos PositiveColor/NegativeColor no FadingDestruction,
-                    // você deve defini-los no script (ou fazer o FadingDestruction obter o SpriteRenderer.color).
-
-                    // fd.SetFadeProperties(1.0f, effectAlpha); // Mantido o original para o fade de Alpha
-
-                    // NOVO: Garantindo que a cor base do efeito seja a cor correta (positiva/negativa)
                     if (sr != null)
                     {
-                        // O FadingDestruction precisa receber a cor base para iniciar o fade se ele não usar o sr.color
-                        // Exemplo: fd.InitializeColor(effectColor);
-                        // Por simplicidade, assumimos que o FadingDestruction usa o sr.color que definimos.
                         fd.SetFadeProperties(1.0f, effectAlpha);
                     }
                 }
@@ -725,10 +787,6 @@ public class WavesManager : MonoBehaviour
         return 0f;
     }
 
-    /// <summary>
-    /// Gera um objeto CollapsedGridData que representa o estado atual da grid.
-    /// </summary>
-    /// <returns>CollapsedGridData da grid atual, ou null se a grid não estiver inicializada.</returns>
     private CollapsedGridData GenerateCurrentGridData()
     {
         if (Graph == null) return null;
@@ -742,7 +800,6 @@ public class WavesManager : MonoBehaviour
 
         if (LevelManager.CurrentLevelData != null)
         {
-            // Assumindo que LevelManager é acessível e CurrentLevelData existe
             data.levelId = LevelManager.CurrentLevelData.levelId;
             data.levelName = LevelManager.CurrentLevelData.levelName;
         }
@@ -760,7 +817,6 @@ public class WavesManager : MonoBehaviour
 
                 if (Graph[i, j] != null && Graph[i, j].wave != null)
                 {
-                    // Captura o valor de colapso da Wave
                     data.flattenedCollapseValues[flatIndex] = Graph[i, j].wave.Collapse;
                 }
                 else
@@ -779,13 +835,11 @@ public class WavesManager : MonoBehaviour
 
         if (currentData == null)
         {
-            Debug.LogError("Current grid is not initialized.");
             return false;
         }
 
         if (currentData.width != comparisonData.width || currentData.height != comparisonData.height)
         {
-            Debug.LogError("Cannot compare, grids sizes does not match.");
             return false;
         }
 
@@ -793,7 +847,6 @@ public class WavesManager : MonoBehaviour
 
         if (currentData.flattenedCollapseValues.Length != comparisonData.flattenedCollapseValues.Length)
         {
-            Debug.LogError("Grid arrays do not match.");
             return false;
         }
 
@@ -801,12 +854,11 @@ public class WavesManager : MonoBehaviour
         {
             if (!Mathf.Approximately(currentData.flattenedCollapseValues[i], comparisonData.flattenedCollapseValues[i]))
             {
-                
+
                 return false;
             }
         }
 
-        Debug.Log("Sucesso na comparação: As grids são idênticas!");
         return true;
     }
 }

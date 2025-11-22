@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
@@ -6,6 +6,15 @@ using UnityEngine.EventSystems;
 
 public class Wave : MonoBehaviour, IPointerClickHandler
 {
+    // 1. ENUM PARA TIPOS DE TWEENING
+    public enum CollapseTweenType
+    {
+        Linear,     // Mathf.Lerp
+        EaseIn,     // Início lento, fim rápido (Efeito de aceleração)
+        EaseOut,    // Início rápido, fim lento (Padrão de suavização)
+        SmoothStep  // Suave no início e no fim (curva em S)
+    }
+
     [System.Serializable]
     public class Influence
     {
@@ -18,7 +27,10 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     public Influence NeighborsInfluence = new Influence();
     public float Collapse = 0.0f;
     private float targetCollapse = 0.0f;
+
+    [Header("Collapse Settings")]
     public float CollapseSpeed = 0.1f;
+    public CollapseTweenType TweenType = CollapseTweenType.EaseOut; // Campo para selecionar o Tweening
 
     public SpriteRenderer Renderer;
     public Gradient ColorGradient;
@@ -34,6 +46,7 @@ public class Wave : MonoBehaviour, IPointerClickHandler
         {
             Renderer = GetComponent<SpriteRenderer>();
         }
+        // Configuração inicial para Alpha 0.0f (pode ser necessário no SlowlyCollapse se você usar o Lerp para alpha)
         Renderer.color = new Color(Renderer.color.r, Renderer.color.g, Renderer.color.b, 0f);
 
         if (AddSelfInfluence)
@@ -46,6 +59,7 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     {
     }
 
+    // ... (Métodos AddInfluence, RemoveInfluence, ClearNullInfluences inalterados) ...
     public void AddInfluence(Influence newInfluence)
     {
         RemoveInfluence(newInfluence.source);
@@ -62,13 +76,16 @@ public class Wave : MonoBehaviour, IPointerClickHandler
         Influences.Clear();
         NeighborsInfluence = new Influence();
     }
+    // ...
 
+    /// <summary>
+    /// Aplica o cálculo e interpolação do colapso usando o tipo de Tweening configurado.
+    /// </summary>
     public void SlowlyCollapse()
     {
-        // 1. Resetar o targetCollapse para zero no in�cio do c�lculo.
+        // 1. CÁLCULO DO TARGET COLLAPSE (Inalterado)
         targetCollapse = 0.0f;
 
-        // 2. Acumular Influ�ncias Externas e Internas
         foreach (var influence in Influences)
         {
             if (influence.source != null)
@@ -77,11 +94,8 @@ public class Wave : MonoBehaviour, IPointerClickHandler
             }
         }
 
-        // 3. Adicionar a influ�ncia total dos vizinhos (j� somada no WavesManager)
         targetCollapse += NeighborsInfluence.value;
 
-        // 4. Calcular o Divisor Din�mico
-        // Usa o CurrentNeighborCount (real n�mero de vizinhos n�o nulos) + o n�mero de Influ�ncias internas/externas.
         float divisor = (float)CurrentNeighborCount + Influences.Count;
 
         if (divisor > 0)
@@ -90,32 +104,76 @@ public class Wave : MonoBehaviour, IPointerClickHandler
         }
         else
         {
-            // Se o n� n�o tem vizinhos e nenhuma influ�ncia, tende a zero.
             targetCollapse = 0.0f;
         }
 
-        // 5. Interpola��o e Clamp
+        // 2. INTERPOLAÇÃO COM TWEENING
+
+        // Fator 't' (determina quão perto estamos do target em um único frame)
+        float t = Time.deltaTime * CollapseSpeed;
+
+        // Usamos uma função auxiliar (EASE) para aplicar a curva no fator de interpolação 't'
+        float easedT = GetEasedValue(t);
+
+        // Interpolação e Clamp
         targetCollapse = Mathf.Clamp01(targetCollapse);
-        Collapse = Mathf.Lerp(Collapse, targetCollapse, Time.deltaTime * CollapseSpeed);
+        Collapse = Mathf.Lerp(Collapse, targetCollapse, easedT);
         Collapse = Mathf.Clamp(Collapse, 0f, 1f);
 
-        // 6. L�gica de Visualiza��o
-        currentAlpha = Mathf.MoveTowards(currentAlpha, 1f, Time.deltaTime * AlphaFadeInSpeed);
-        currentAlpha = Mathf.Clamp01(currentAlpha);
+        // 3. Lógica de Visualização (Inalterada)
+        //currentAlpha = Mathf.MoveTowards(currentAlpha, 1f, Time.deltaTime * AlphaFadeInSpeed);
+        //currentAlpha = Mathf.Clamp01(currentAlpha);
 
         Color newColor = ColorGradient.Evaluate(Collapse);
+        //newColor.a = currentAlpha; // Garante que o alpha também seja aplicado
         Renderer.color = newColor;
+    }
+
+    /// <summary>
+    /// Retorna o valor de interpolação ajustado (t) baseado no tipo de Tweening.
+    /// </summary>
+    /// <param name="t">O valor base da interpolação (Time.deltaTime * CollapseSpeed).</param>
+    /// <returns>O valor 't' suavizado.</returns>
+    private float GetEasedValue(float t)
+    {
+        // Garante que 't' não exceda 1, mesmo que CollapseSpeed seja alto.
+        t = Mathf.Clamp01(t);
+
+        switch (TweenType)
+        {
+            case CollapseTweenType.Linear:
+                return t; // Sem modificação
+
+            case CollapseTweenType.EaseIn:
+                // Começa lentamente (t próximo de 0), acelera (t² -> t³ -> t⁴)
+                // Usando t * t (Quadrático) para um EaseIn simples
+                return t * t;
+
+            case CollapseTweenType.EaseOut:
+                // Começa rapidamente (t próximo de 1), desacelera
+                // Usando 1 - (1-t)² para um EaseOut simples
+                return 1 - (1 - t) * (1 - t);
+
+            case CollapseTweenType.SmoothStep:
+                // SmoothStep (suave no início e no fim, rápido no meio)
+                return t * t * (3f - 2f * t);
+
+            default:
+                return t;
+        }
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
         if (eventData.button == PointerEventData.InputButton.Left)
         {
-            Influences.Add(new Influence() { source = this, value = 1 });
+            // Adiciona uma influência positiva (força o colapso para 1)
+            Influences.Add(new Influence() { source = this, value = 1f });
         }
         else if (eventData.button == PointerEventData.InputButton.Right)
         {
-            Influences.Add(new Influence() { source = this, value = 0 });
+            // Adiciona uma influência negativa (força o colapso para 0)
+            Influences.Add(new Influence() { source = this, value = -1f }); // Alterado para -1f
         }
         else if (eventData.button == PointerEventData.InputButton.Middle)
         {

@@ -4,12 +4,19 @@ using UnityEngine.EventSystems;
 
 public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    // NOVO ENUM: Define como a influência se propaga.
+    public enum InfluenceType { Line = 0, Radius = 1 }
+
     public Slot CurrentSlot { get; set; }
     private Vector3 _startPosition;
     private Transform _startParent;
     private Collider2D _col;
     public GameObject WaveEffectPrefab;
 
+    // Novo campo para definir o tipo de influência
+    public InfluenceType influenceType = InfluenceType.Line;
+
+    // CanRotate agora só deve ser relevante se influenceType for Line.
     public bool CanRotate = true;
     public int range = 0;
     public int force = 0;
@@ -48,7 +55,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         _col.enabled = true;
         Slot targetSlot = null;
 
-        if(droppedOn == null)
+        if (droppedOn == null)
         {
             ReturnToManager();
             return;
@@ -72,7 +79,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         if (observerDroppedOn != null)
         {
             //dropped on an observer, now check if it is in use or in the manager
-            if(observerDroppedOn.CurrentSlot == null)
+            if (observerDroppedOn.CurrentSlot == null)
             {
                 //dropped in the manager, just return this to the manager
                 ReturnToManager();
@@ -86,22 +93,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
             return;
         }
 
-        //if (_startParent != null && _startParent.GetComponent<Slot>() != null)
-        //{
-        //    if (_startParent.GetComponent<ObserversManager>() != null)
-        //    {
-        //        ReturnToManager();
-        //        return;
-        //    }
-
-        //    Slot originalSlot = _startParent.GetComponent<Slot>();
-        //    if (originalSlot != null)
-        //    {
-        //        originalSlot.AssignObserver(this);
-        //        return;
-        //    }
-        //}
-
+        // Caso não tenha sido dropado em Slot ou Observer, retorna para o manager/posição inicial
         ReturnToManager();
     }
 
@@ -109,7 +101,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     {
         if (manager != null)
         {
-            if(CurrentSlot != null)
+            if (CurrentSlot != null)
             {
                 CurrentSlot.RemoveObserver();
             }
@@ -125,7 +117,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
     public void IncreaseRange()
     {
         range++;
-        
+
         if (range > WavesManager.GridSize)
         {
             range = 0;

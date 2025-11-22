@@ -13,7 +13,7 @@ public class LevelManager : MonoBehaviour
         public int duration = 30;
         public List<GameObject> observers;
         public int gridSize = 3;
-        public Sprite target;
+        public TextAsset target;
     }
 
     public static LevelData CurrentLevelData;
@@ -54,7 +54,7 @@ public class LevelManager : MonoBehaviour
 
         wavesManager.WaveSize = WaveSize;
         wavesManager.CreateGrid(CurrentLevelData.gridSize);
-
+        wavesManager.Drawer.DrawGridFromData(CurrentLevelData.target.text);
         observersManager.Observe(CurrentLevelData.observers);
 
         AdjustCameraAndPositions();
