@@ -867,14 +867,11 @@ public class WavesManager : MonoBehaviour
             // Usamos Mathf.Max(ComparisonRange, 0.0001f) para evitar divisão por zero, caso o range seja 0
             float normalizedError = difference / Mathf.Max(ComparisonRange, 0.0001f);
 
-            // 3. Converte Erro em Similaridade (1.0 = 100% acerto, 0.0 = 0% acerto ou pior)
-            // Clamp(0f, 1f) garante que a similaridade nunca seja negativa
             float similarity = Mathf.Clamp01(1f - normalizedError);
 
             totalSimilarity += similarity;
         }
 
-        // Retorna a média das similaridades
         float averageSimilarity = totalSimilarity / totalSize;
         averageSimilarity = Mathf.Ceil(averageSimilarity);
         return averageSimilarity;
