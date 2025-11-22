@@ -17,7 +17,7 @@ public class Slot : MonoBehaviour
 
     private WavesManager _manager;
 
-    public enum DecayType { DoesNotDecay = 0, Spread = 1, VerySlow = 2, Slow = 3, Medium = 4, Fast = 5, VeryFast = 6 }
+    public enum DecayType { DoesNotDecay = 0, VerySlow = 2, Slow = 3, Medium = 4, Fast = 5, VeryFast = 6 }
     public DecayType CurrentDecayType = DecayType.DoesNotDecay;
 
     public enum CornerType { None = 0, TopLeft = 1, TopRight = 2, BottomLeft = 3, BottomRight = 4 }

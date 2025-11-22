@@ -255,7 +255,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (10)
+      value: Level11
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -652,7 +652,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (7)
+      value: Level8
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -955,7 +955,7 @@ PrefabInstance:
       objectReference: {fileID: 311129907889165838, guid: 7d9ba7f8d0bfa3044b611bb309ef2fcd, type: 3}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab
+      value: Level1
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -1073,7 +1073,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   WavesManager: {fileID: 0}
   ObserverSize: 1
-  ColumnSpacing: 0.1
+  SlotSpacing: 0.1
   BackgroundSprite: {fileID: 21300000, guid: 5e26a1edf9e2dc6459c8e0174497d979, type: 3}
   BackgroundColor: {r: 0.5377358, g: 0.5377358, b: 0.5377358, a: 1}
   SlotSprite: {fileID: 21300000, guid: bd2c7583202ff73409cbf8c14c1908b0, type: 3}
@@ -1179,7 +1179,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (5)
+      value: Level6
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -2059,12 +2059,16 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6997690905760678222, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
+      propertyPath: gridSize
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6997690905760678222, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: levelName
-      value: LevelPrefab (1)
+      value: Level2
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (1)
+      value: Level2
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -3099,7 +3103,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (3)
+      value: Level4
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -3203,12 +3207,16 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6997690905760678222, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
+      propertyPath: gridSize
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6997690905760678222, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: levelName
-      value: LevelPrefab (2)
+      value: Level3
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (2)
+      value: Level3
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -3557,7 +3565,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (8)
+      value: Level9
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -4080,7 +4088,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (12)
+      value: Level13
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -4291,7 +4299,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (9)
+      value: Level10
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -5760,7 +5768,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (11)
+      value: Level12
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -6649,7 +6657,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (4)
+      value: Level5
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x
@@ -7938,7 +7946,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7254018115828409312, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Name
-      value: LevelPrefab (6)
+      value: Level7
       objectReference: {fileID: 0}
     - target: {fileID: 8625530229964783073, guid: 074b78530402e6c4cadd127084c1ee04, type: 3}
       propertyPath: m_Pivot.x

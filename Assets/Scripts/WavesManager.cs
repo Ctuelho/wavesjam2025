@@ -489,12 +489,6 @@ public class WavesManager : MonoBehaviour
             return 1f;
         }
 
-        if (decayType == Slot.DecayType.Spread)
-        {
-            if (totalWavesAffected <= 1) return 1f;
-            return 1f - ((float)waveIndex / (totalWavesAffected - 1));
-        }
-
         float decayRate;
         switch (decayType)
         {
@@ -509,15 +503,11 @@ public class WavesManager : MonoBehaviour
         return Mathf.Max(0f, 1f - (waveIndex * decayRate));
     }
 
-
-    // ... (Dentro da classe WavesManager)
-
-    // Remove o parâmetro effectList
     public void ApplyObserverInfluenceAndShowEffects(Observer observer, Slot slot, GameObject effectPrefab)
     {
         if (slot.CurrentObserver != observer || Graph == null) return;
 
-        // 1. Limpa todas as influências anteriores (Isso é obrigatório para evitar duplicatas)
+        // 1. Limpa todas as influências anteriores (Obrigatório para evitar duplicatas)
         RemoveInfluenceSource(observer);
 
         Slot.DecayType decayType = slot.CurrentDecayType;
@@ -587,40 +577,70 @@ public class WavesManager : MonoBehaviour
             float decayFactor = CalculateDecayFactor(decayType, i, totalWavesAffected);
             float influenceValue = decayFactor * observer.force;
 
-            // ⚠️ NOVO: A transparência do efeito e do flash é baseada no valor da influência.
-            float effectAlpha = influenceValue;
+            // O valor Alpha é o VALOR ABSOLUTO da influência,
+            // garantindo que uma influência negativa ainda gere um efeito visível.
+            float effectAlpha = Mathf.Abs(influenceValue);
 
             // -----------------------------------------------------------
-            // 1. CONDIÇÃO DE INSTANCIAÇÃO: Só continua se houver influência.
+            // 1. CONDIÇÃO DE INSTANCIAÇÃO: Só instancia se a influência for significativa.
             // -----------------------------------------------------------
-            if (true)//effectAlpha > 0.001f)
+            if (effectPrefab != null && effectAlpha > 0.001f)
             {
+                // 2. DETERMINAÇÃO DA COR
+                Color effectColor;
+
+                // Assume-se que o Observer ou o ObserverManager tem as cores. 
+                // Se as cores estiverem no FadingDestruction, esta lógica precisa ser adaptada.
+                // Aqui, vou usar cores básicas para demonstração, mas você deve obter as cores do seu sistema.
+                if (influenceValue > 0)
+                {
+                    effectColor = Color.green; // Cor para influência positiva
+                }
+                else
+                {
+                    effectColor = Color.red; // Cor para influência negativa
+                }
+
                 Wave.Influence influence = new Wave.Influence() { source = observer, value = influenceValue };
                 wave.AddInfluence(influence);
 
                 // Criação do Efeito Visual
-                if (effectPrefab != null)
-                {
-                    GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
-                    effect.transform.localScale = Vector3.one * WaveSize;
-                    effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
-                    effect.transform.SetParent(transform);
+                GameObject effect = Instantiate(effectPrefab, wave.transform.position, Quaternion.identity);
+                effect.transform.localScale = Vector3.one * WaveSize;
+                effect.name = $"WaveEffect_{observer.gameObject.name}_{i}";
+                effect.transform.SetParent(transform);
 
-                    // Configura a TRANSPARÊNCIA do efeito (se tiver SpriteRenderer)
-                    SpriteRenderer sr = effect.GetComponent<SpriteRenderer>();
+                // Configura a COR e a TRANSPARÊNCIA do efeito (SpriteRenderer)
+                SpriteRenderer sr = effect.GetComponent<SpriteRenderer>();
+                if (sr != null)
+                {
+                    // Usa a cor determinada (positiva ou negativa)
+                    effectColor.a = effectAlpha; // Define a transparência (Alpha)
+                    sr.color = effectColor;
+                }
+
+                // Configura o FadingDestruction (para o flash)
+                FadingDestruction fd = effect.GetComponent<FadingDestruction>();
+                if (fd != null)
+                {
+                    // Se o FadingDestruction precisa saber a cor de destino:
+                    // fd.PositiveColor e fd.NegativeColor são assumidos estar no FadingDestruction.
+
+                    // Opção 1: Se o FadingDestruction só usa a cor inicial do SpriteRenderer
+                    // O código acima já configura o sr.color.
+
+                    // Opção 2: Se o FadingDestruction precisa da cor para o fade
+                    // Se você tem os campos PositiveColor/NegativeColor no FadingDestruction,
+                    // você deve defini-los no script (ou fazer o FadingDestruction obter o SpriteRenderer.color).
+
+                    // fd.SetFadeProperties(1.0f, effectAlpha); // Mantido o original para o fade de Alpha
+
+                    // NOVO: Garantindo que a cor base do efeito seja a cor correta (positiva/negativa)
                     if (sr != null)
                     {
-                        Color color = sr.color;
-                        color.a = effectAlpha; // Define a transparência (Alpha)
-                        sr.color = color;
-                    }
-
-                    // Configura o FadingDestruction (para o flash)
-                    FadingDestruction fd = effect.GetComponent<FadingDestruction>();
-                    if (fd != null)
-                    {
-                        // ⚠️ NOVO: Passa a transparência/influência como Alpha FINAL para o flash
-                        // (O Alpha inicial pode ser 1.0f para o "flash")
+                        // O FadingDestruction precisa receber a cor base para iniciar o fade se ele não usar o sr.color
+                        // Exemplo: fd.InitializeColor(effectColor);
+                        // Por simplicidade, assumimos que o FadingDestruction usa o sr.color que definimos.
                         fd.SetFadeProperties(1.0f, effectAlpha);
                     }
                 }

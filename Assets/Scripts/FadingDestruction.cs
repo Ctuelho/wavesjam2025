@@ -9,6 +9,9 @@ using DG.Tweening;
 [RequireComponent(typeof(SpriteRenderer))]
 public class FadingDestruction : MonoBehaviour
 {
+    public Color PositiveColor = Color.cyan;
+    public Color NegativeColor = Color.red;
+
     [Header("Configuração")]
     [Tooltip("O tempo total que a animação de desvanecimento deve levar, em segundos.")]
     public float fadeDuration = 1.0f;
