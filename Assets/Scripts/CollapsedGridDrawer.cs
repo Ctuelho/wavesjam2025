@@ -1,27 +1,20 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using System.Collections.Generic;
 
-// Requer um SpriteRenderer no GameObject para o frame principal (LeftSpriteRenderer)
 [RequireComponent(typeof(SpriteRenderer))]
 public class CollapsedGridDrawer : MonoBehaviour
 {
     [Header("Mini Wave Configuration")]
-    // O Sprite a ser usado para desenhar cada cÈlula da mini-wave
     public Sprite CellSprite;
-    // Gradient para mapear o valor Collapse (0.0f a 1.0f) para uma cor
     public Gradient CollapseColorGradient;
 
-    // Lista para manter o controle dos objetos de mini-wave criados para limpeza
     private List<GameObject> _currentMiniWaves = new List<GameObject>();
     private SpriteRenderer _frameRenderer;
-
-    // Vari·veis para cache do tamanho da grid
     private int _gridX, _gridY;
 
     private void Awake()
     {
         _frameRenderer = GetComponent<SpriteRenderer>();
-        // Garante que o frame principal comece invisÌvel, ou tenha um Alpha de 0
         if (_frameRenderer != null)
         {
             Color c = _frameRenderer.color;
@@ -29,11 +22,6 @@ public class CollapsedGridDrawer : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Desenha a mini-grid lendo os dados de colapso de uma string JSON.
-    /// Assume que este script est· no LeftSpriteRenderer, obtendo a posiÁ„o e escala dele.
-    /// </summary>
-    /// <param name="jsonData">String JSON contendo os dados da WavesManager.CollapsedGridData.</param>
     public void DrawGridFromData(string jsonData)
     {
         if (string.IsNullOrEmpty(jsonData))
@@ -42,11 +30,9 @@ public class CollapsedGridDrawer : MonoBehaviour
             return;
         }
 
-        // 1. Deserializar o JSON
         WavesManager.CollapsedGridData data;
         try
         {
-            // Nota: Requer que WavesManager.CollapsedGridData seja acessÌvel
             data = JsonUtility.FromJson<WavesManager.CollapsedGridData>(jsonData);
         }
         catch (System.Exception e)
@@ -57,66 +43,84 @@ public class CollapsedGridDrawer : MonoBehaviour
 
         if (data == null || CellSprite == null || _frameRenderer == null)
         {
-            Debug.LogError("CollapsedGridDrawer: Deserialized data is null, CellSprite ou FrameRenderer est· faltando.");
+            Debug.LogError("CollapsedGridDrawer: Deserialized data is null, CellSprite ou FrameRenderer est√° faltando.");
             return;
         }
 
         ClearPreviousDrawings();
 
-        // 2. Configurar o Frame Principal e Obter Par‚metros
-        Vector3 framePosition = _frameRenderer.transform.position;
-        // Obtemos a escala para determinar o tamanho total do "frame"
+        // 2. Configurar o Frame Principal e Obter Par√¢metros
         float frameScale = _frameRenderer.transform.localScale.x;
+        Vector3 frameLocalPosition = _frameRenderer.transform.localPosition;
+        float frameZ = frameLocalPosition.z;
 
         Color c = _frameRenderer.color;
-        _frameRenderer.color = new Color(c.r, c.g, c.b, 1f); // Torna o frame visÌvel
+        _frameRenderer.color = new Color(c.r, c.g, c.b, 1f);
 
-        // Obtemos as dimensıes da grid
         _gridX = data.width;
         _gridY = data.height;
 
-        // Escala da Mini-Wave: O lado do frame dividido pelo maior n˙mero de cÈlulas (para caber perfeitamente)
-        float miniWaveScale = frameScale / Mathf.Max(_gridX, _gridY);
-        float halfFrameScale = frameScale / 2f;
+        // =========================================================================================
+        // 3. C√ÅLCULO DE ESCALA E POSI√á√ÉO (IGNORANDO frameLocalPosition.x)
+        // =========================================================================================
 
-        // 3. Calcular PosiÁıes de Offset
-        // PosiÁ„o inicial (canto inferior esquerdo)
-        float startX = framePosition.x - halfFrameScale + miniWaveScale / 2f;
-        float startY = framePosition.y - halfFrameScale + miniWaveScale / 2f;
+        float maxDim = Mathf.Max(_gridX, _gridY);
+        float miniWaveScale = frameScale / maxDim;
+
+        float totalGridWidth = _gridX * miniWaveScale;
+        float totalGridHeight = _gridY * miniWaveScale;
+
+        // Ponto de in√≠cio (Canto Inferior Esquerdo):
+        // ANULA√á√ÉO DO OFFSET X: Usamos 0 em X e mantemos o frameLocalPosition.y.
+        // A grade ser√° centralizada em X=0 do objeto pai.
+        float startX = 0f - (totalGridWidth / 2f);
+        float startY = frameLocalPosition.y - (totalGridHeight / 2f); // Mantemos Y
+
+        // Fator de escala do objeto pai
+        float parentScaleFactor = transform.localScale.x;
+
+        // =========================================================================================
+        // FIM DO C√ÅLCULO
+        // =========================================================================================
 
         // 4. Desenhar Mini Waves
         for (int i = 0; i < _gridX; i++)
         {
             for (int j = 0; j < _gridY; j++)
             {
-                // Acesso ‡ grid de colapso
                 int flatIndex = i * _gridY + j;
 
                 if (flatIndex < data.flattenedCollapseValues.Length)
                 {
                     float collapseValue = data.flattenedCollapseValues[flatIndex];
-
-                    // Obter a cor do Gradiente
                     Color waveColor = CollapseColorGradient.Evaluate(Mathf.Clamp01(collapseValue));
 
                     // 5. Criar GameObject, Adicionar SpriteRenderer e Configurar
                     GameObject miniWaveObj = new GameObject($"MiniWave {i}-{j}");
-                    miniWaveObj.transform.SetParent(transform);
+                    miniWaveObj.transform.SetParent(transform, worldPositionStays: false);
 
-                    // Adicionar o SpriteRenderer
                     SpriteRenderer sr = miniWaveObj.AddComponent<SpriteRenderer>();
-                    sr.sprite = CellSprite; // Aplica o sprite de referÍncia
-                    sr.sortingOrder = 1; // Garante que seja desenhado acima do frame (Background)
+                    sr.sprite = CellSprite;
+                    sr.sortingOrder = 1;
                     sr.color = waveColor;
 
-                    // Posicionamento no plano (i, j)
-                    float posX = startX + i * miniWaveScale;
-                    float posY = startY + j * miniWaveScale;
-                    // Posicionamento Z ligeiramente ‡ frente do frame (se o frame Z for 0, isto È -0.01)
-                    miniWaveObj.transform.position = new Vector3(posX, posY, framePosition.z - 0.01f);
+                    // Posicionamento no plano (i, j):
+                    float centerOffsetX = (i * miniWaveScale) + (miniWaveScale / 2f);
+                    float centerOffsetY = (j * miniWaveScale) + (miniWaveScale / 2f);
 
-                    // A escala do objeto È o tamanho da cÈlula calculado
-                    miniWaveObj.transform.localScale = Vector3.one * miniWaveScale;
+                    // posX √© o deslocamento a partir do centro (0)
+                    float posX = startX + centerOffsetX;
+                    float posY = startY + centerOffsetY;
+
+                    // üéØ COMPENSA√á√ÉO DE POSI√á√ÉO FINAL
+                    float finalLocalX = posX / parentScaleFactor;
+                    float finalLocalY = posY / parentScaleFactor;
+
+                    miniWaveObj.transform.localPosition = new Vector3(finalLocalX, finalLocalY, frameZ - 0.01f);
+
+                    // COMPENSA√á√ÉO DE ESCALA
+                    float finalLocalScale = miniWaveScale / parentScaleFactor;
+                    miniWaveObj.transform.localScale = Vector3.one * finalLocalScale;
 
                     _currentMiniWaves.Add(miniWaveObj);
                 }
@@ -124,18 +128,12 @@ public class CollapsedGridDrawer : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// DestrÛi todos os objetos de mini-wave criados.
-    /// </summary>
     public void ClearPreviousDrawings()
     {
         foreach (var wave in _currentMiniWaves)
         {
             if (wave != null)
             {
-                // Usamos DestroyImmediate no editor, mas Destroy em tempo de execuÁ„o
-                // Para simplificar, vou manter o Destroy padr„o, mas esteja ciente
-                // de usar DestroyImmediate se vocÍ estiver chamando isso dentro de OnValidate/Editor Scripting.
                 Destroy(wave);
             }
         }
@@ -143,7 +141,6 @@ public class CollapsedGridDrawer : MonoBehaviour
 
         if (_frameRenderer != null)
         {
-            // Oculta o frame principal ao limpar
             Color c = _frameRenderer.color;
             _frameRenderer.color = new Color(c.r, c.g, c.b, 0f);
         }

@@ -201,6 +201,9 @@ public class WavesManager : MonoBehaviour
 
         CreateFrameAndSlots(_gridX, _gridY, startX, startY);
 
+        float gridFrameMinX = startX - (WaveSize / 2f);
+        UpdateLeftSpritePosition(gridFrameMinX, ScreenEdgePadding);
+
         InvokeRepeating("Collapse", WaveDelay, WaveDelay);
     }
 
@@ -873,7 +876,15 @@ public class WavesManager : MonoBehaviour
         }
 
         float averageSimilarity = totalSimilarity / totalSize;
-        averageSimilarity = Mathf.Ceil(averageSimilarity);
+
+        float shiftedValue = averageSimilarity * 100f;
+
+        float ceiledValue = Mathf.Ceil(shiftedValue);
+
+        averageSimilarity = ceiledValue / 100f;
+
+        averageSimilarity = Mathf.Clamp(averageSimilarity, 0, 1f);
+
         return averageSimilarity;
     }
 }

@@ -1,30 +1,32 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 
 public class LevelFeedbackUI : MonoBehaviour
 {
-    // Dependências
+    // DependÃªncias
     [Header("Dependencies")]
     public LevelManager levelManager;
     public WavesManager wavesManager;
     public Image progressBarFillImage;
     public RectTransform progressBarContainer;
+    public TextMeshProUGUI percentage;
 
-    // ... (Referências de Estrela inalteradas) ...
+    // ... (ReferÃªncias de Estrela inalteradas) ...
     [Header("Stars UI References")]
     [Tooltip("Estrela 1 (Threshold mais baixo). Deve ter pivot (0.5, 0.5) para escala correta.")]
     public RectTransform star1Rect;
-    [Tooltip("Estrela 2 (Threshold médio). Deve ter pivot (0.5, 0.5) para escala correta.")]
+    [Tooltip("Estrela 2 (Threshold mÃ©dio). Deve ter pivot (0.5, 0.5) para escala correta.")]
     public RectTransform star2Rect;
     [Tooltip("Estrela 3 (Threshold mais alto). Deve ter pivot (0.5, 0.5) para escala correta.")]
     public RectTransform star3Rect;
 
-    // NOVAS REFERÊNCIAS DE FEEDBACK E BOTÃO
+    // NOVAS REFERÃŠNCIAS DE FEEDBACK E BOTÃƒO
     [Header("5. Final Feedback UI")]
-    [Tooltip("Fundo que irá aumentar a opacidade para escurecer a tela.")]
+    [Tooltip("Fundo que irÃ¡ aumentar a opacidade para escurecer a tela.")]
     public Image backgroundOverlay;
     [Tooltip("Mensagem para 1 estrela.")]
     public RectTransform goodMessage;
@@ -34,19 +36,19 @@ public class LevelFeedbackUI : MonoBehaviour
     public RectTransform perfectMessage;
     [Tooltip("Mensagem para 0 estrelas (Falha).")]
     public RectTransform failureMessage;
-    [Tooltip("Botão para continuar a ser habilitado no final.")]
+    [Tooltip("BotÃ£o para continuar a ser habilitado no final.")]
     public GameObject continueButton;
 
-    // Parâmetros de Animação
+    // ParÃ¢metros de AnimaÃ§Ã£o
     [Header("6. Final Animation Parameters")]
     public float overlayFadeDuration = 0.5f;
     [Range(0f, 1f)]
     public float targetOverlayOpacity = 0.7f;
     public float messagePunchScale = 1.2f;
     public float failureScaleDuration = 0.5f;
-    public float finalDisplayDelay = 0.5f; // Delay antes de mostrar a mensagem após a barra
+    public float finalDisplayDelay = 0.5f; // Delay antes de mostrar a mensagem apÃ³s a barra
 
-    // ... (Parâmetros de Animação e Gradiente inalterados) ...
+    // ... (ParÃ¢metros de AnimaÃ§Ã£o e Gradiente inalterados) ...
     [Header("1. Target Sprite Animation")]
     public float spriteMoveDuration = 1.0f;
     public Ease spriteMoveEase = Ease.OutBack;
@@ -66,14 +68,13 @@ public class LevelFeedbackUI : MonoBehaviour
     public Gradient ColorGradient;
 
 
-    // Referências privadas...
+    // ReferÃªncias privadas...
     private SpriteRenderer _leftSprite;
     private float _initialLeftSpriteScale;
     private bool _star1Animated = false;
     private bool _star2Animated = false;
     private bool _star3Animated = false;
     private List<(float threshold, RectTransform starRect)> _starReferences = new List<(float, RectTransform)>();
-
 
     private void Awake()
     {
@@ -87,16 +88,20 @@ public class LevelFeedbackUI : MonoBehaviour
             }
         }
 
-        // Desativa UI no início
+        // Chama o Reset completo no Awake para garantir o estado inicial zero
+        // antes mesmo do OnEnable/StartLevelEvaluation.
+        ResetFinalFeedbackUI();
+
+        // Desativa UI no inÃ­cio (deve ser a Ãºltima linha)
         gameObject.SetActive(false);
     }
 
     /// <summary>
-    /// Inicia o processo de feedback e animação do nível.
+    /// Inicia o processo de feedback e animaÃ§Ã£o do nÃ­vel.
     /// </summary>
     public void StartLevelEvaluation()
     {
-        // ... (Verificações de dependência inalteradas) ...
+        // ... (VerificaÃ§Ãµes de dependÃªncia inalteradas) ...
         if (levelManager == null || wavesManager == null || ColorGradient == null || star1Rect == null)
         {
             Debug.LogError("Dependencies or Star Rects not fully set in LevelFeedbackUI.");
@@ -112,7 +117,7 @@ public class LevelFeedbackUI : MonoBehaviour
         gameObject.SetActive(true);
         _leftSprite = wavesManager.LeftSpriteRenderer;
 
-        // Resetar o estado das estrelas e animação
+        // Resetar o estado das estrelas e animaÃ§Ã£o
         _star1Animated = _star2Animated = _star3Animated = false;
 
         // Resetar a UI de Feedback
@@ -135,27 +140,6 @@ public class LevelFeedbackUI : MonoBehaviour
         AnimateTargetSpriteToGrid();
     }
 
-    /// <summary>
-    /// Desativa todos os elementos de feedback final no início.
-    /// </summary>
-    private void ResetFinalFeedbackUI()
-    {
-        // 1. Desativa mensagens e botão
-        goodMessage?.gameObject.SetActive(false);
-        excellentMessage?.gameObject.SetActive(false);
-        perfectMessage?.gameObject.SetActive(false);
-        failureMessage?.gameObject.SetActive(false);
-        continueButton?.SetActive(false);
-
-        // 2. Reseta a opacidade do Overlay
-        if (backgroundOverlay != null)
-        {
-            Color c = backgroundOverlay.color;
-            backgroundOverlay.color = new Color(c.r, c.g, c.b, 0f);
-        }
-    }
-
-
     private void ResetAndPositionStars()
     {
         if (progressBarContainer == null)
@@ -175,11 +159,11 @@ public class LevelFeedbackUI : MonoBehaviour
             containerHeight = progressBarContainer.sizeDelta.y;
             if (containerWidth <= 0 || containerHeight <= 0)
             {
-                Debug.LogError("Não foi possível determinar a largura/altura da barra para posicionar as estrelas corretamente. Verifique se a UI está ativa e configurada.");
+                Debug.LogError("NÃ£o foi possÃ­vel determinar a largura/altura da barra para posicionar as estrelas corretamente. Verifique se a UI estÃ¡ ativa e configurada.");
                 return;
             }
         }
-
+        
         foreach (var starRef in _starReferences)
         {
             RectTransform starRect = starRef.starRect;
@@ -187,16 +171,16 @@ public class LevelFeedbackUI : MonoBehaviour
 
             if (starRect != null)
             {
-                // Calcula a posição local no eixo X
-                //float xPos = normalizedPosition * containerWidth; // Distância da borda esquerda.
+                // Calcula a posiÃ§Ã£o local no eixo X
+                //float xPos = normalizedPosition * containerWidth; // DistÃ¢ncia da borda esquerda.
 
-                // Cálculo da Posição Y (acima da barra)
+                // CÃ¡lculo da PosiÃ§Ã£o Y (acima da barra)
                 //float starHeight = starRect.sizeDelta.y;
                 //float yPos = (containerHeight / 2f) + (starHeight / 2f); // Altura: metade da barra + metade da estrela
 
                 //starRect.anchoredPosition = new Vector2(xPos, yPos);
 
-                // Garante que a estrela comece invisível/pequena
+                // Garante que a estrela comece invisÃ­vel/pequena
                 starRect.localScale = Vector3.zero;
 
                 // Define o parent (Garantia)
@@ -207,7 +191,7 @@ public class LevelFeedbackUI : MonoBehaviour
 
     private void AnimateTargetSpriteToGrid()
     {
-        // ... (Animação do Sprite inalterada) ...
+        // ... (AnimaÃ§Ã£o do Sprite inalterada) ...
         float waveSize = wavesManager.WaveSize;
         float gridSize = LevelManager.CurrentLevelData.gridSize;
         float actualGridWidth = gridSize * waveSize;
@@ -226,7 +210,7 @@ public class LevelFeedbackUI : MonoBehaviour
         progressBarContainer.DOPunchScale(Vector3.one * punchScale, punchDuration, punchVibrato, punchElasticity)
             .OnComplete(() =>
             {
-                // 3. Animação de preenchimento após o Punch
+                // 3. AnimaÃ§Ã£o de preenchimento apÃ³s o Punch
                 StartFillAnimation();
             });
     }
@@ -234,10 +218,9 @@ public class LevelFeedbackUI : MonoBehaviour
 
     private void StartFillAnimation()
     {
-        // ... (Obtenção de finalSimilarity e cálculo de fillTarget inalterado) ...
-        if (progressBarFillImage == null)
+        if (progressBarFillImage == null || percentage == null)
         {
-            Debug.LogError("ProgressBarFillImage não está definido.");
+            Debug.LogError("ProgressBarFillImage ou Percentage Text nÃ£o estÃ£o definidos.");
             return;
         }
 
@@ -253,6 +236,12 @@ public class LevelFeedbackUI : MonoBehaviour
         float dynamicFillDuration = fillDuration * fillTarget;
         float currentFillAmount = progressBarFillImage.fillAmount;
 
+        // ðŸŽ¯ CORREÃ‡ÃƒO AQUI: ATIVAR O GAMEOBJECT DO TEXTO
+        percentage.gameObject.SetActive(true);
+
+        // Garante que o texto comece em 0%
+        percentage.text = "Similarity 0.0%";
+
         // 2. Tweening do preenchimento usando o fillAmount
         DOTween.To(() => currentFillAmount, x =>
         {
@@ -263,7 +252,23 @@ public class LevelFeedbackUI : MonoBehaviour
                 progressBarFillImage.color = ColorGradient.Evaluate(x);
             }
 
-            // Verifica e dispara os métodos de animação da estrela no OnUpdate
+            // ================================================================
+            // ðŸŽ¯ NOVO CÃ“DIGO: ATUALIZAÃ‡ÃƒO DO TEXTO DE PORCENTAGEM
+            // ================================================================
+
+            // 1. Converte o valor normalizado (0 a 1) para porcentagem (0 a 100)
+            float percentValue = x * 100f;
+
+            // 2. Formata o valor com UMA casa decimal (Ex: 95.7%)
+            // Usa o especificador F1 para formatar com uma casa decimal.
+            string formattedPercent = percentValue.ToString("F1");
+
+            // 3. Atualiza o componente TextMeshPro
+            percentage.text = $"Similarity {formattedPercent}%";
+
+            // ================================================================
+
+            // Verifica e dispara os mÃ©todos de animaÃ§Ã£o da estrela no OnUpdate
             CheckStarThresholds(x);
 
         }, fillTarget, dynamicFillDuration)
@@ -271,15 +276,20 @@ public class LevelFeedbackUI : MonoBehaviour
             .SetDelay(fillStartDelay)
             .OnComplete(() =>
             {
+                // Opcional: Garante 100.0% se o fillTarget for 1.0f
+                if (fillTarget >= 0.99f)
+                {
+                    percentage.text = "Similarity 100.0%";
+                }
+
                 // 4. Ao completar o preenchimento, exibe o feedback final
                 int stars = levelManager.EvaluateLevelRating();
                 Debug.Log($"Finalizado! Estrelas conquistadas: {stars}");
 
-                // Chamada para a nova função de feedback final
+                // Chamada para a nova funÃ§Ã£o de feedback final
                 DisplayFinalFeedback(stars);
             });
     }
-
     private void DisplayFinalFeedback(int stars)
     {
         // 1. FADE DO OVERLAY DE FUNDO
@@ -297,7 +307,7 @@ public class LevelFeedbackUI : MonoBehaviour
 
         if (messageRect != null)
         {
-            // O Delay é aplicado pela Sequence
+            // O Delay Ã© aplicado pela Sequence
             finalSequence.AppendCallback(() =>
             {
                 // Ativa o objeto da mensagem
@@ -314,9 +324,9 @@ public class LevelFeedbackUI : MonoBehaviour
                     // Falha (0 estrelas): Scale up com Fade In
                     Image messageImage = messageRect.GetComponent<Image>();
                     // Desativa temporariamente para garantir a opacidade correta do texto/imagens filhas
-                    messageRect.localScale = Vector3.one * 0.5f; // Começa pequeno
+                    messageRect.localScale = Vector3.one * 0.5f; // ComeÃ§a pequeno
 
-                    // Zera a opacidade (garantindo que todas as imagens filhas também fadem)
+                    // Zera a opacidade (garantindo que todas as imagens filhas tambÃ©m fadem)
                     CanvasGroup cg = messageRect.GetComponent<CanvasGroup>();
                     if (cg == null)
                     {
@@ -324,15 +334,15 @@ public class LevelFeedbackUI : MonoBehaviour
                     }
                     cg.alpha = 0f;
 
-                    // Animação de Scale e Fade In
+                    // AnimaÃ§Ã£o de Scale e Fade In
                     messageRect.DOScale(Vector3.one, failureScaleDuration).SetEase(Ease.OutBack);
                     cg.DOFade(1f, failureScaleDuration);
                 }
             });
         }
 
-        // 3. HABILITAR BOTÃO DE CONTINUAR
-        // Adiciona um delay adicional antes de mostrar o botão (opcional)
+        // 3. HABILITAR BOTÃƒO DE CONTINUAR
+        // Adiciona um delay adicional antes de mostrar o botÃ£o (opcional)
         finalSequence.AppendInterval(finalDisplayDelay)
             .OnComplete(() =>
             {
@@ -341,7 +351,7 @@ public class LevelFeedbackUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Retorna o RectTransform da mensagem correspondente ao número de estrelas.
+    /// Retorna o RectTransform da mensagem correspondente ao nÃºmero de estrelas.
     /// Desativa as outras mensagens.
     /// </summary>
     private RectTransform GetMessageRectForStars(int stars)
@@ -366,7 +376,7 @@ public class LevelFeedbackUI : MonoBehaviour
                 targetRect = failureMessage;
                 break;
             default:
-                Debug.LogWarning($"Resultado de estrela inesperado: {stars}. Nenhuma mensagem será exibida.");
+                Debug.LogWarning($"Resultado de estrela inesperado: {stars}. Nenhuma mensagem serÃ¡ exibida.");
                 return null;
         }
 
@@ -408,7 +418,7 @@ public class LevelFeedbackUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Anima a estrela correspondente ao número (1, 2, ou 3).
+    /// Anima a estrela correspondente ao nÃºmero (1, 2, ou 3).
     /// </summary>
     private void AnimateStar(int starNumber)
     {
@@ -429,13 +439,56 @@ public class LevelFeedbackUI : MonoBehaviour
 
         if (starRect != null)
         {
-            // Animação: Dá um "Punch" na escala da estrela e volta, tornando-a visível
+            // AnimaÃ§Ã£o: DÃ¡ um "Punch" na escala da estrela e volta, tornando-a visÃ­vel
             starRect.DOScale(Vector3.one * starPunchScale, 0.2f)
                 .SetEase(Ease.OutCirc)
                 .OnComplete(() =>
                 {
                     starRect.DOScale(Vector3.one, 0.1f);
                 });
+        }
+    }
+
+    /// <summary>
+    /// Desativa todos os elementos de feedback final no inÃ­cio.
+    /// </summary>
+    private void ResetFinalFeedbackUI()
+    {
+        // 1. Desativa mensagens e botÃ£o
+        goodMessage?.gameObject.SetActive(false);
+        excellentMessage?.gameObject.SetActive(false);
+        perfectMessage?.gameObject.SetActive(false);
+        failureMessage?.gameObject.SetActive(false);
+        continueButton?.SetActive(false);
+
+        // 2. Reseta a opacidade do Overlay
+        if (backgroundOverlay != null)
+        {
+            Color c = backgroundOverlay.color;
+            backgroundOverlay.color = new Color(c.r, c.g, c.b, 0f);
+        }
+
+        // NOVO CÃ“DIGO: Reseta e desativa o texto de porcentagem
+        if (percentage != null)
+        {
+            percentage.gameObject.SetActive(false);
+            percentage.text = "Similarity 0.0%";
+        }
+    }
+
+    private void OnDisable()
+    {
+        // NOVO CÃ“DIGO: Garante que todos os elementos de feedback sejam resetados
+        // quando o componente (ou o GameObject) Ã© desativado, prevenindo bugs
+        // visuais na prÃ³xima ativaÃ§Ã£o.
+        ResetFinalFeedbackUI();
+
+        // Opcional: Para cancelar quaisquer Tweens ativos na barra ou sprites,
+        // garantindo que nÃ£o haja animaÃ§Ãµes fantasmas.
+        DOTween.Kill(progressBarContainer, complete: true);
+        if (_leftSprite != null)
+        {
+            DOTween.Kill(_leftSprite.transform, complete: true);
         }
     }
 }
