@@ -15,11 +15,6 @@ public class CollapsedGridDrawer : MonoBehaviour
     private void Awake()
     {
         _frameRenderer = GetComponent<SpriteRenderer>();
-        if (_frameRenderer != null)
-        {
-            Color c = _frameRenderer.color;
-            _frameRenderer.color = new Color(c.r, c.g, c.b, 0f);
-        }
     }
 
     public void DrawGridFromData(string jsonData)
@@ -53,9 +48,6 @@ public class CollapsedGridDrawer : MonoBehaviour
         float frameScale = _frameRenderer.transform.localScale.x;
         Vector3 frameLocalPosition = _frameRenderer.transform.localPosition;
         float frameZ = frameLocalPosition.z;
-
-        Color c = _frameRenderer.color;
-        _frameRenderer.color = new Color(c.r, c.g, c.b, 1f);
 
         _gridX = data.width;
         _gridY = data.height;
@@ -138,11 +130,5 @@ public class CollapsedGridDrawer : MonoBehaviour
             }
         }
         _currentMiniWaves.Clear();
-
-        if (_frameRenderer != null)
-        {
-            Color c = _frameRenderer.color;
-            _frameRenderer.color = new Color(c.r, c.g, c.b, 0f);
-        }
     }
 }

@@ -3,17 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine.EventSystems;
+using DG.Tweening;
+using UnityEngine.UIElements.Experimental; // NECESSÁRIO PARA DOTWEEN E O NOVO ENUM EASE
 
-public class Wave : MonoBehaviour, IPointerClickHandler
+public class Wave : MonoBehaviour//, IPointerClickHandler
 {
-    // 1. ENUM PARA TIPOS DE TWEENING
-    public enum CollapseTweenType
-    {
-        Linear,     // Mathf.Lerp
-        EaseIn,     // Início lento, fim rápido (Efeito de aceleração)
-        EaseOut,    // Início rápido, fim lento (Padrão de suavização)
-        SmoothStep  // Suave no início e no fim (curva em S)
-    }
+    // O enum CollapseTweenType foi removido e substituído por DG.Tweening.Ease
 
     [System.Serializable]
     public class Influence
@@ -28,9 +23,21 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     public float Collapse = 0.0f;
     private float targetCollapse = 0.0f;
 
-    [Header("Collapse Settings")]
+    [Header("Collapse Settings (Preview)")]
     public float CollapseSpeed = 0.1f;
-    public CollapseTweenType TweenType = CollapseTweenType.EaseOut; // Campo para selecionar o Tweening
+    // Campo atualizado para usar o enum Ease nativo do DOTween
+    public Ease PreviewEaseType = Ease.OutQuad;
+
+    [Header("Collapse Targets & Final State")]
+    public float[] DiscreteCollapseTargets = { 0.2f, 0.4f, 0.6f, 0.8f, 1.0f }; // Alvos discretos
+    public Gradient TargetCollapseGradient; // Gradiente para a cor final após o colapso
+
+    [Header("DOTween Shake Settings")]
+    public float ShakeDuration = 0.5f;
+    public float ShakeStrength = 0.1f;
+    public int ShakeVibrato = 10;
+    public float ShakeRandomness = 90f;
+    public bool ShakeFadeOut = true;
 
     public SpriteRenderer Renderer;
     public Gradient ColorGradient;
@@ -40,13 +47,14 @@ public class Wave : MonoBehaviour, IPointerClickHandler
 
     public int CurrentNeighborCount;
 
+    public AudioSource audioSource;
+
     private void Awake()
     {
         if (Renderer == null)
         {
             Renderer = GetComponent<SpriteRenderer>();
         }
-        // Configuração inicial para Alpha 0.0f (pode ser necessário no SlowlyCollapse se você usar o Lerp para alpha)
         Renderer.color = new Color(Renderer.color.r, Renderer.color.g, Renderer.color.b, 0f);
 
         if (AddSelfInfluence)
@@ -59,7 +67,6 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     {
     }
 
-    // ... (Métodos AddInfluence, RemoveInfluence, ClearNullInfluences inalterados) ...
     public void AddInfluence(Influence newInfluence)
     {
         RemoveInfluence(newInfluence.source);
@@ -75,15 +82,14 @@ public class Wave : MonoBehaviour, IPointerClickHandler
     {
         Influences.Clear();
         NeighborsInfluence = new Influence();
+        if (AddSelfInfluence)
+        {
+            AddInfluence(new Influence() { source = this, value = 0.0f });
+        }
     }
-    // ...
 
-    /// <summary>
-    /// Aplica o cálculo e interpolação do colapso usando o tipo de Tweening configurado.
-    /// </summary>
-    public void SlowlyCollapse()
+    public void PreviewCollapse()
     {
-        // 1. CÁLCULO DO TARGET COLLAPSE (Inalterado)
         targetCollapse = 0.0f;
 
         foreach (var influence in Influences)
@@ -107,77 +113,97 @@ public class Wave : MonoBehaviour, IPointerClickHandler
             targetCollapse = 0.0f;
         }
 
-        // 2. INTERPOLAÇÃO COM TWEENING
-
-        // Fator 't' (determina quão perto estamos do target em um único frame)
         float t = Time.deltaTime * CollapseSpeed;
+        t = Mathf.Clamp01(t);
 
-        // Usamos uma função auxiliar (EASE) para aplicar a curva no fator de interpolação 't'
-        float easedT = GetEasedValue(t);
+        float easedT = DOVirtual.EasedValue(0, 1, t, PreviewEaseType);
 
-        // Interpolação e Clamp
         targetCollapse = Mathf.Clamp01(targetCollapse);
         Collapse = Mathf.Lerp(Collapse, targetCollapse, easedT);
-        Collapse = Mathf.Clamp(Collapse, 0f, 1f);
-
-        // 3. Lógica de Visualização (Inalterada)
-        //currentAlpha = Mathf.MoveTowards(currentAlpha, 1f, Time.deltaTime * AlphaFadeInSpeed);
-        //currentAlpha = Mathf.Clamp01(currentAlpha);
+        Collapse = Mathf.Clamp01(Collapse);
 
         Color newColor = ColorGradient.Evaluate(Collapse);
-        //newColor.a = currentAlpha; // Garante que o alpha também seja aplicado
         Renderer.color = newColor;
     }
 
-    /// <summary>
-    /// Retorna o valor de interpolação ajustado (t) baseado no tipo de Tweening.
-    /// </summary>
-    /// <param name="t">O valor base da interpolação (Time.deltaTime * CollapseSpeed).</param>
-    /// <returns>O valor 't' suavizado.</returns>
-    private float GetEasedValue(float t)
+    private float FindNearestDiscreteTarget()
     {
-        // Garante que 't' não exceda 1, mesmo que CollapseSpeed seja alto.
-        t = Mathf.Clamp01(t);
-
-        switch (TweenType)
+        if (DiscreteCollapseTargets == null || DiscreteCollapseTargets.Length == 0)
         {
-            case CollapseTweenType.Linear:
-                return t; // Sem modificação
-
-            case CollapseTweenType.EaseIn:
-                // Começa lentamente (t próximo de 0), acelera (t² -> t³ -> t⁴)
-                // Usando t * t (Quadrático) para um EaseIn simples
-                return t * t;
-
-            case CollapseTweenType.EaseOut:
-                // Começa rapidamente (t próximo de 1), desacelera
-                // Usando 1 - (1-t)² para um EaseOut simples
-                return 1 - (1 - t) * (1 - t);
-
-            case CollapseTweenType.SmoothStep:
-                // SmoothStep (suave no início e no fim, rápido no meio)
-                return t * t * (3f - 2f * t);
-
-            default:
-                return t;
+            return Collapse;
         }
+
+        float nearestTarget = DiscreteCollapseTargets[0];
+        float minDifference = Mathf.Abs(Collapse - nearestTarget);
+
+        foreach (float target in DiscreteCollapseTargets)
+        {
+            float difference = Mathf.Abs(Collapse - target);
+
+            if (difference < minDifference)
+            {
+                minDifference = difference;
+                nearestTarget = target;
+            }
+        }
+        return nearestTarget;
     }
 
-    public void OnPointerClick(PointerEventData eventData)
+    private Vector3 originalPosition;
+    public Ease ToEase = Ease.Linear;
+    // MÉTODO MODIFICADO
+    public void CollapseNow(float delay = 0)
     {
-        if (eventData.button == PointerEventData.InputButton.Left)
+        Collapse = targetCollapse;
+        originalPosition = transform.localPosition;
+
+        // 0. Interrompe tweens anteriores (importante para evitar jumps e conflitos de cor)
+        DOTween.Kill(this.transform);
+
+        // 1. Encontrar o alvo de colapso discreto
+        float finalCollapseTarget = FindNearestDiscreteTarget();
+
+        //if (Collapse < 0.3f)
+        //    Collapse = 0.3f;
+
+        // 2. TWEEN DO VALOR DE COLAPSO (Collapse) E DA COR
+        // Faz o tween do Collapse do valor atual para o alvo final
+        DOTween.To(() => Collapse, x => Collapse = x, finalCollapseTarget, ShakeDuration+ delay)
+            .SetEase(ToEase) // Mantenha Linear para uma transição de valor suave e contínua
+            .OnUpdate(() =>
+            {
+                // A. ATUALIZA A COR: A cada frame do tween, atualiza a cor
+                // usando o valor de Collapse tweenado e o TargetCollapseGradient.
+                Renderer.color = TargetCollapseGradient.Evaluate(Collapse);
+            })
+            .OnComplete(() =>
+            {
+                // Garante que o valor final seja exatamente o alvo discreto
+                Collapse = finalCollapseTarget;
+                // A cor final já foi definida no último OnUpdate.
+            })
+            .SetTarget(this); // Target no script para Kill futuros
+
+        // 3. SHAKE DE POSIÇÃO (corre em paralelo com o tween de valor/cor)
+        transform.DOShakePosition(
+            ShakeDuration + delay,
+            ShakeStrength,
+            ShakeVibrato,
+            ShakeRandomness,
+            ShakeFadeOut
+        ).OnComplete(() =>
         {
-            // Adiciona uma influência positiva (força o colapso para 1)
-            Influences.Add(new Influence() { source = this, value = 1f });
-        }
-        else if (eventData.button == PointerEventData.InputButton.Right)
-        {
-            // Adiciona uma influência negativa (força o colapso para 0)
-            Influences.Add(new Influence() { source = this, value = -1f }); // Alterado para -1f
-        }
-        else if (eventData.button == PointerEventData.InputButton.Middle)
-        {
-            ClearNullInfluences();
-        }
+            // Garante que a posição volte ao zero exato.
+            transform.localPosition = originalPosition;
+            if(finalCollapseTarget > 0)
+            {
+                audioSource.Play();
+            }            
+        });
     }
+
+    //public void OnPointerClick(PointerEventData eventData)
+    //{
+    // ... (código desativado)
+    //}
 }

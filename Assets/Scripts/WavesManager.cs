@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using System.Linq;
 using System.IO;
+using System.Collections; // Adicionado para Coroutines
+using UnityEngine.Events; // Adicionado para UnityEvent
 
 public class WavesManager : MonoBehaviour
 {
@@ -46,6 +48,15 @@ public class WavesManager : MonoBehaviour
 
     [System.Serializable]
     public class Influence { public object source; public float value; }
+
+    // --- NOVO ---
+    [Header("Collapse All Settings")]
+    [Tooltip("Atraso após o último CollapseNow ser chamado em uma Wave e antes dos eventos de conclusão.")]
+    public float CollapseAllDelay = 1.0f; // Tempo de espera
+
+    [Tooltip("Eventos que serão disparados após todas as Waves terem colapsado e o atraso ter terminado.")]
+    public UnityEvent OnCollapseAllComplete; // Lista de eventos
+    // ------------
 
     [System.Serializable]
     public class Node
@@ -316,9 +327,59 @@ public class WavesManager : MonoBehaviour
                 Node node = Graph[i, j];
                 node.wave.NeighborsInfluence = new Wave.Influence() { source = node.wave, value = node.NeighborsInfluence };
                 node.wave.CurrentNeighborCount = node.NeighborCount;
-                node.wave.SlowlyCollapse();
+                node.wave.PreviewCollapse();
             }
         }
+    }
+
+    public float CollapseInterval = 0.1f;
+    private int _intervalCallCount = 0;
+    public void CollapseAllNow()
+    {
+        CancelInvoke();
+        if (Graph == null)
+        {
+            Debug.LogWarning("Graph is null. Cannot collapse all waves.");
+            return;
+        }
+
+        _intervalCallCount = 0;
+
+        StartCoroutine(CollapseAllTimedCoroutine());
+    }
+
+    private IEnumerator CollapseAllTimedCoroutine()
+    {
+        int width = Graph.GetLength(0);
+        int height = Graph.GetLength(1);
+
+        for (int j = height - 1; j >= 0; j--) // De cima para baixo
+        {
+            for (int i = 0; i < width; i++) // Da esquerda para a direita
+            {
+                Wave wave = Graph[i, j].wave;
+                if (wave != null)
+                {
+                    // 1. Chama o CollapseNow na Wave
+                    wave.CollapseNow();
+
+                    // 2. Espera pelo intervalo
+                    yield return new WaitForSeconds(CollapseInterval);
+
+                    // 3. Conta o intervalo
+                    _intervalCallCount++;
+                }
+            }
+        }
+
+        Debug.Log($"Total de intervalos de colapso chamados: {_intervalCallCount}");
+
+        // Espera o tempo configurado para que os Shakes/Tweens das Waves terminem.
+        yield return new WaitForSeconds(CollapseAllDelay);
+
+        // 4. Dispara os eventos de conclusão
+        Debug.Log("CollapseAllNow completed. Invoking OnCollapseAllComplete events.");
+        OnCollapseAllComplete.Invoke();
     }
 
     Slot.DirectionType GetDirection(int gridX, int gridY, int gridWidth, int gridHeight)
@@ -769,11 +830,11 @@ public class WavesManager : MonoBehaviour
         }
     }
 
-    public void UpdateLeftSpritePosition(float gridFrameMinX, float paddingX, Sprite newSprite = null, float newSize = 0f)
+    public void UpdateLeftSpritePosition(float gridFrameMinX, float paddingX, float newSize = 0f)
     {
         if (LeftSpriteRenderer == null) return;
 
-        if (newSprite != null) LeftSpriteRenderer.sprite = newSprite;
+        //if (newSprite != null) LeftSpriteRenderer.sprite = newSprite;
         if (newSize > 0f) LeftSpriteSize = newSize;
 
         LeftSpriteRenderer.transform.localScale = Vector3.one * LeftSpriteSize;
@@ -813,7 +874,8 @@ public class WavesManager : MonoBehaviour
             data.levelName = "UnknownLevel";
         }
 
-        for (int i = 0; i < _gridX; i++)
+
+            for (int i = 0; i < _gridX; i++)
         {
             for (int j = 0; j < _gridY; j++)
             {
@@ -863,11 +925,8 @@ public class WavesManager : MonoBehaviour
             float currentVal = currentData.flattenedCollapseValues[i];
             float targetVal = comparisonData.flattenedCollapseValues[i];
 
-            // 1. Calcula a diferença absoluta
             float difference = Mathf.Abs(currentVal - targetVal);
 
-            // 2. Normaliza a diferença pelo ComparisonRange para obter o Erro (0.0 = 0% erro; 1.0 = 100% erro no range)
-            // Usamos Mathf.Max(ComparisonRange, 0.0001f) para evitar divisão por zero, caso o range seja 0
             float normalizedError = difference / Mathf.Max(ComparisonRange, 0.0001f);
 
             float similarity = Mathf.Clamp01(1f - normalizedError);

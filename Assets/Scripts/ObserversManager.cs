@@ -34,6 +34,7 @@ public class ObserversManager : MonoBehaviour
     public float ActorHeight = 1.0f;
     public Color InteractableColor = Color.green;
     public Color NotInteractableColor = Color.red;
+    public SpriteButton button;
     // ---------------------------------------------------
 
     public float TotalHeight { get; private set; }
@@ -145,10 +146,10 @@ public class ObserversManager : MonoBehaviour
         }
         _slotInstances.Clear();
 
-        if (ObserveActorRenderer != null)
-        {
-            ObserveActorRenderer.transform.parent = null;
-        }
+        //if (ObserveActorRenderer != null)
+        //{
+        //    ObserveActorRenderer.transform.parent = null;
+        //}
     }
 
     private void RecalculateObserverPositions()
@@ -156,8 +157,7 @@ public class ObserversManager : MonoBehaviour
         int totalObserverCount = _currentObservers.Count;
 
         List<Observer> availableObservers = _currentObservers
-            // Substitua 'object' pelo tipo real do seu slot, se necessário.
-            .Where(obs => obs != null /*&& obs.CurrentSlot == null*/)
+            .Where(obs => obs != null && obs.CurrentSlot == null)
             .ToList();
 
         ClearVisuals();
@@ -304,6 +304,21 @@ public class ObserversManager : MonoBehaviour
 
         bool isInteractable = _currentObservers.Any(o => o.CurrentSlot != null);
 
+        button.Interactable = isInteractable;
         ObserveActorRenderer.color = isInteractable ? InteractableColor : NotInteractableColor;
+    }
+
+    private void OnDisable()
+    {
+        foreach (var obs in _currentObservers)
+        {
+            if (obs != null && obs.gameObject != null)
+            {
+                Destroy(obs.gameObject);
+            }
+        }
+        _currentObservers.Clear();
+
+        ClearVisuals();
     }
 }

@@ -36,6 +36,8 @@ public class LevelManager : MonoBehaviour
     [Header("Observer Setup")]
     public List<GameObject> observerPrefabs = new List<GameObject>();
 
+    public GameObject leaveButton;
+
     private void Update()
     {
         if (Input.GetKeyUp(KeyCode.F5))
@@ -44,7 +46,7 @@ public class LevelManager : MonoBehaviour
         }
         else if(Input.GetKeyUp (KeyCode.F6))
         {
-            levelFeedbackUI.StartLevelEvaluation();
+            //levelFeedbackUI.StartLevelEvaluation();
         }
     }
 

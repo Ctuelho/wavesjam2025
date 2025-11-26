@@ -76,16 +76,8 @@ public class LevelFeedbackUI : MonoBehaviour
     [Header("4. Progress Bar Color Gradient")]
     public Gradient ColorGradient;
 
-
-    // Referências privadas...
-    private SpriteRenderer _leftSprite;
-    private float _initialLeftSpriteScale;
-    private bool _star1Animated = false;
-    private bool _star2Animated = false;
-    private bool _star3Animated = false;
-    private List<(float threshold, RectTransform starRect)> _starReferences = new List<(float, RectTransform)>();
-
-    [Header("Audio Feedback")]
+    // 🔊 AUDIO DA BARRA DE PROGRESSO (Fill)
+    [Header("Audio Feedback - Progress Bar")]
     [Tooltip("O AudioSource que tocará o som de preenchimento.")]
     public AudioSource audioSource;
     [Tooltip("O clip de áudio para o efeito de preenchimento.")]
@@ -100,6 +92,30 @@ public class LevelFeedbackUI : MonoBehaviour
     [Tooltip("Fator mínimo do intervalo entre os sons (0 a 1). Garante que a cadência inicial não seja muito rápida.")]
     [Range(0.0f, 1f)]
     public float minFillSoundIntervalFactor = 0.25f; // Valor padrão 0.25 (25% do intervalo máximo)
+
+
+    // 🌟 NOVOS CAMPOS DE ÁUDIO PARA ESTRELAS
+    [Header("Audio Feedback - Stars")]
+    [Tooltip("O AudioSource para tocar os sons das estrelas.")]
+    public AudioSource starAudioSource;
+    [Tooltip("Clip de áudio quando a 1ª estrela é alcançada.")]
+    public AudioClip star1Clip1;
+    public float Pitch1, Volume1;
+    [Tooltip("Clip de áudio quando a 2ª estrela é alcançada.")]
+    public AudioClip star2Clip;
+    public float Pitch2, Volume2;
+    [Tooltip("Clip de áudio quando a 3ª estrela é alcançada.")]
+    public AudioClip star3Clip;
+    public float Pitch3, Volume3;
+    // 🌟 FIM DOS NOVOS CAMPOS DE ÁUDIO PARA ESTRELAS
+
+    // Referências privadas...
+    private SpriteRenderer _leftSprite;
+    private float _initialLeftSpriteScale;
+    private bool _star1Animated = false;
+    private bool _star2Animated = false;
+    private bool _star3Animated = false;
+    private List<(float threshold, RectTransform starRect)> _starReferences = new List<(float, RectTransform)>();
 
 
     private void Awake()
@@ -224,6 +240,10 @@ public class LevelFeedbackUI : MonoBehaviour
 
         WavesManager.CollapsedGridData targetData = JsonUtility.FromJson<WavesManager.CollapsedGridData>(LevelManager.CurrentLevelData.target.text);
         float finalSimilarity = wavesManager.GetGridSimilarity(targetData);
+        if (finalSimilarity >= levelManager.ThreeStarsThreshold)
+        {
+            finalSimilarity = 1f;
+        }
         fillTarget = finalSimilarity;
 
         if (finalSimilarity > 0.9999f)
@@ -363,12 +383,19 @@ public class LevelFeedbackUI : MonoBehaviour
             DOTween.Kill(_leftSprite.transform, complete: true);
         }
 
-        // MATA TWEENS E PARA O SOM
+        // MATA TWEENS E PARA O SOM DA BARRA
         if (audioSource != null)
         {
             DOTween.Kill(audioSource);
             audioSource.Stop();
             audioSource.pitch = 1f;
+        }
+
+        // MATA TWEENS E PARA O SOM DAS ESTRELAS
+        if (starAudioSource != null)
+        {
+            DOTween.Kill(starAudioSource);
+            starAudioSource.Stop();
         }
 
         // Garante que o estado interno de controle de áudio seja resetado
@@ -425,7 +452,7 @@ public class LevelFeedbackUI : MonoBehaviour
             .OnComplete(() =>
             {
                 continueButton?.SetActive(true);
-                playAgainButton?.SetActive(true);
+                playAgainButton?.SetActive(false);
                 SaveLevel();
             });
     }
@@ -433,7 +460,7 @@ public class LevelFeedbackUI : MonoBehaviour
     private void SaveLevel()
     {
         stars = levelManager.ConvertSimilarityToStars(fillTarget);
-        if(Level.SelectedLevel != null && stars > 0)
+        if (Level.SelectedLevel != null && stars > 0)
         {
             Level.SelectedLevel.Complete(stars);
         }
@@ -492,27 +519,42 @@ public class LevelFeedbackUI : MonoBehaviour
         }
 
         // Estrela 3
-        if (!_star3Animated && currentProgress >= levelManager.ThreeStarsThreshold)
+        if (!_star3Animated && currentProgress >= 1)
         {
             _star3Animated = true;
             AnimateStar(3);
+
+            // Opcional: Anima a 3ª estrela um pouco antes se o fillTarget for 1.0, 
+            // mas o valor real não atinge 1.0 devido a precisão do float.
+            // Para simplicidade, vou manter a lógica como está, já que 'currentProgress >= 1' 
+            // no loop de tweening DOTween.To deve ser suficiente para o caso 100%.
         }
     }
 
     private void AnimateStar(int starNumber)
     {
         RectTransform starRect = null;
+        AudioClip starClip = null;
 
         switch (starNumber)
         {
             case 1:
                 starRect = star1Rect;
+                starClip = star1Clip1; // 🌟 NOVO: Atribui o clip
+                starAudioSource.volume = Volume1;
+                starAudioSource.pitch = Pitch1;
                 break;
             case 2:
                 starRect = star2Rect;
+                starClip = star2Clip; // 🌟 NOVO: Atribui o clip
+                starAudioSource.volume = Volume2;
+                starAudioSource.pitch = Pitch2;
                 break;
             case 3:
                 starRect = star3Rect;
+                starClip = star3Clip; // 🌟 NOVO: Atribui o clip
+                starAudioSource.volume = Volume3;
+                starAudioSource.pitch = Pitch3;
                 break;
         }
 
@@ -525,6 +567,13 @@ public class LevelFeedbackUI : MonoBehaviour
                     starRect.DOScale(Vector3.one, 0.1f);
                 });
         }
+
+        // 🔊 NOVO: Toca o som da estrela
+        if (starAudioSource != null && starClip != null)
+        {
+            starAudioSource.PlayOneShot(starClip);
+        }
+        // 🔊 FIM DO NOVO ÁUDIO
     }
 
     private void ResetFinalFeedbackUI()

@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
@@ -35,6 +35,9 @@ public class Level : MonoBehaviour, IPointerClickHandler
 
     private int stars = 0;
     private bool _isComplete;
+
+    public AudioSource audioSource;
+
     public bool IsComplete 
     {
         get
@@ -88,7 +91,7 @@ public class Level : MonoBehaviour, IPointerClickHandler
             bool willOpen = false;
 
             // 1. PRIMEIRA CHECAGEM: SAVE (PlayerPrefs)
-            // Se o levelId tiver uma chave salva e as estrelas forem > 0, ele j· est· COMPLETO e ABERTO.
+            // Se o levelId tiver uma chave salva e as estrelas forem > 0, ele j√° est√° COMPLETO e ABERTO.
             if (PlayerPrefs.HasKey(lvl.levelId.ToString()))
             {
                 int savedStars = PlayerPrefs.GetInt(lvl.levelId.ToString());
@@ -101,25 +104,25 @@ public class Level : MonoBehaviour, IPointerClickHandler
                 }
             }
 
-            // 2. SEGUNDA CHECAGEM: DEPEND NCIA (Apenas se n„o estiver aberto pelo save)
+            // 2. SEGUNDA CHECAGEM: DEPEND√äNCIA (Apenas se n√£o estiver aberto pelo save)
             if (!willOpen)
             {
                 if (lvl.OpensIf == null)
                 {
-                    // … o primeiro nÌvel ou n„o tem prÈ-requisito
+                    // √â o primeiro n√≠vel ou n√£o tem pr√©-requisito
                     willOpen = true;
                 }
                 else
                 {
-                    // Abertura condicional baseada na conclus„o do nÌvel anterior
+                    // Abertura condicional baseada na conclus√£o do n√≠vel anterior
                     willOpen = lvl.OpensIf.IsComplete;
                 }
 
-                // Atualiza o estado de InteraÁ„o e o marcador Fechado/Completo (se n„o foi feito em IsComplete = true)
+                // Atualiza o estado de Intera√ß√£o e o marcador Fechado/Completo (se n√£o foi feito em IsComplete = true)
                 lvl.interactable.interactable = willOpen;
                 lvl.closedMark.SetActive(!willOpen);
 
-                // Se o nÌvel est· aberto, mas n„o completo (porque willOpen È true e n„o veio do save), 
+                // Se o n√≠vel est√° aberto, mas n√£o completo (porque willOpen √© true e n√£o veio do save), 
                 // garantimos que o completeMark esteja DESATIVADO, e o closedMark ATIVADO.
                 if (!lvl.IsComplete && willOpen)
                 {
@@ -127,24 +130,41 @@ public class Level : MonoBehaviour, IPointerClickHandler
                 }
             }
 
-            // Aplica o estado de abertura final (necess·rio mesmo que j· completo para a lÛgica de dependÍncia futura)
+            // Aplica o estado de abertura final (necess√°rio mesmo que j√° completo para a l√≥gica de depend√™ncia futura)
             lvl.IsOpen = willOpen;
 
-            // Atualiza a visualizaÁ„o das estrelas (seja do save ou zero)
+            // Atualiza a visualiza√ß√£o das estrelas (seja do save ou zero)
             lvl.UpdateStars();
         }
     }
 
-    public void Complete(int stars)
+    public void Complete(int newStars)
     {
-        if (stars > 0)
+        // Se o novo valor de estrelas for 0, n√£o fazemos nada (pode ser um cen√°rio de falha n√£o recompensada).
+        if (newStars <= 0)
         {
-            this.stars = stars;
-            UpdateStars();
-            PlayerPrefs.SetInt(levelId.ToString(), stars);
-            PlayerPrefs.Save();
-            completeMark.gameObject.SetActive(true);
+            return;
         }
+
+        // üåü CHECAGEM PRINCIPAL: S√≥ atualiza se o novo valor for MAIOR que o valor atual.
+        if (newStars > this.stars)
+        {
+            // Atualiza a vari√°vel interna do script
+            this.stars = newStars;
+
+            // Atualiza o PlayerPrefs (o save) com o novo (e maior) valor
+            PlayerPrefs.SetInt(levelId.ToString(), newStars);
+            PlayerPrefs.Save();
+
+            // Atualiza o visual
+            UpdateStars();
+
+            // Define o n√≠vel como completo (necess√°rio caso seja a primeira vez)
+            this.IsComplete = true; // Garante que o completeMark e interactable sejam setados
+        }
+
+        // Garante que o completeMark esteja vis√≠vel, independentemente de ter sido setado ou n√£o.
+        completeMark?.gameObject.SetActive(true);
     }
 
     public static void ClearSave()
@@ -183,6 +203,11 @@ public class Level : MonoBehaviour, IPointerClickHandler
 
         SelectedLevel = this;
         UpdateVisualState();
+
+        if(eventData != null)
+        {
+            audioSource.Play();
+        }
     }
 
     public void UpdateVisualState()
