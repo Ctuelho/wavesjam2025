@@ -272,7 +272,7 @@ public class WavesManager : MonoBehaviour
 
         targetOrthoSize = Mathf.Max(requiredVerticalSizeForHeight, requiredVerticalSizeForWidth);
 
-        targetCameraPosition = new Vector3(totalAreaCenterX, 0, TargetCamera.transform.position.z);
+        targetCameraPosition = new Vector3(0, 0, TargetCamera.transform.position.z);
     }
 
     public void SaveCurrentGridState()

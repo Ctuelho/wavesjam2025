@@ -1076,7 +1076,7 @@ MonoBehaviour:
   backgroundImage: {fileID: 6881645946499413620}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   selectedColor: {r: 0, g: 1, b: 0, a: 1}
-  completeMark: {fileID: 1384807207552332616}
+  completeMark: {fileID: 4644836961438039523}
   closedMark: {fileID: 6692276775037977224}
   interactable: {fileID: 656724805121882161}
   levelId: 1
@@ -1086,6 +1086,7 @@ MonoBehaviour:
   gridSize: 3
   target: {fileID: 0}
   OpensIf: {fileID: 0}
+  IsOpen: 0
   shadowStars:
   - {fileID: 2470255612076786052}
   - {fileID: 97850720540868867}

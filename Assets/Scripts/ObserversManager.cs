@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 
+// A classe Observer precisa ter a propriedade CurrentSlot
+// public class Observer : MonoBehaviour { public object CurrentSlot; public ObserversManager manager; /* ... */ }
+
 public class ObserversManager : MonoBehaviour
 {
     public WavesManager WavesManager;
@@ -11,7 +14,7 @@ public class ObserversManager : MonoBehaviour
 
     [Header("Layout")]
     [Tooltip("O espaçamento entre linhas e colunas dos slots de observer.")]
-    public float SlotSpacing = 0.1f; // <-- RENOMEADO para refletir uso 2D
+    public float SlotSpacing = 0.1f;
 
     [Header("Visual Feedback")]
     [Tooltip("Sprite a ser usado para o fundo da área de observers.")]
@@ -21,6 +24,17 @@ public class ObserversManager : MonoBehaviour
     [Tooltip("Sprite a ser usado para os slots individuais dos observers.")]
     public Sprite SlotSprite;
     public Color SlotColor = new Color(0.3f, 0.3f, 0.3f, 0.8f);
+
+    // --- PROPRIEDADES DO OBSERVE ACTOR (REFERÊNCIA EXTERNA) ---
+    [Header("Observe Actor (Reference)")]
+    [Tooltip("Referência ao SpriteRenderer do ator JÁ EXISTENTE na cena.")]
+    public SpriteRenderer ObserveActorRenderer; // Referência direta
+    public float ActorSpacing = 1.0f;
+    public float ActorWidth = 3.0f;
+    public float ActorHeight = 1.0f;
+    public Color InteractableColor = Color.green;
+    public Color NotInteractableColor = Color.red;
+    // ---------------------------------------------------
 
     public float TotalHeight { get; private set; }
     public float TotalWidth { get; private set; }
@@ -35,6 +49,8 @@ public class ObserversManager : MonoBehaviour
 
     public void Initialize(float waveSize, int gridSize)
     {
+        gameObject.SetActive(true);
+
         _waveSize = waveSize;
         _maxColumnHeight = gridSize * _waveSize;
 
@@ -69,13 +85,14 @@ public class ObserversManager : MonoBehaviour
         {
             GameObject observerGO = Instantiate(observerPrefabs[i], transform);
             Observer observer = observerGO.GetComponent<Observer>();
-            observer.manager = this;
+            // observer.manager = this; 
 
             if (observer != null)
             {
                 observerGO.transform.localScale = Vector3.one;
                 _currentObservers.Add(observer);
                 observerGO.name = $"Observer {i + 1}";
+                observer.manager = this;
             }
         }
 
@@ -92,6 +109,9 @@ public class ObserversManager : MonoBehaviour
             _currentObservers.Add(observer);
         }
         RecalculateObserverPositions();
+
+        // Chamada de atualização do estado
+        UpdateObserveActorState();
     }
 
     private SpriteRenderer CreateSprite(string name, Sprite sprite, Color color, int sortingOrder)
@@ -124,6 +144,11 @@ public class ObserversManager : MonoBehaviour
             }
         }
         _slotInstances.Clear();
+
+        if (ObserveActorRenderer != null)
+        {
+            ObserveActorRenderer.transform.parent = null;
+        }
     }
 
     private void RecalculateObserverPositions()
@@ -131,7 +156,8 @@ public class ObserversManager : MonoBehaviour
         int totalObserverCount = _currentObservers.Count;
 
         List<Observer> availableObservers = _currentObservers
-            .Where(obs => obs != null && obs.CurrentSlot == null)
+            // Substitua 'object' pelo tipo real do seu slot, se necessário.
+            .Where(obs => obs != null /*&& obs.CurrentSlot == null*/)
             .ToList();
 
         ClearVisuals();
@@ -140,113 +166,144 @@ public class ObserversManager : MonoBehaviour
         {
             TotalHeight = 0f;
             TotalWidth = 0f;
+
+            if (ObserveActorRenderer != null)
+            {
+                ObserveActorRenderer.gameObject.SetActive(false);
+            }
             return;
         }
 
-        // --- CÁLCULO DE LAYOUT ---
-        float spacing = SlotSpacing; // Usa o espaçamento único para linhas e colunas
+        if (ObserveActorRenderer != null)
+        {
+            ObserveActorRenderer.gameObject.SetActive(true);
+            ObserveActorRenderer.transform.SetParent(this.transform);
+        }
 
-        // 1. Cálculo da Altura Máxima da Coluna (agora considera o espaçamento vertical)
-        // Observamos o tamanho da coluna sem o espaçamento entre elementos
+        // --- 1. CÁLCULO DE LAYOUT DA ÁREA DOS OBSERVERS (SLOTS) ---
+        float spacing = SlotSpacing;
         float maxAvailableVerticalSpace = _maxColumnHeight;
 
-        // A altura de um elemento + espaçamento é (ObserverSize + spacing).
-        // Contamos quantos blocos cabem, arredondando para baixo.
         int maxObserversPerColumn = Mathf.FloorToInt((maxAvailableVerticalSpace + spacing) / (ObserverSize + spacing));
         maxObserversPerColumn = Mathf.Max(1, maxObserversPerColumn);
 
         int numColumns = Mathf.CeilToInt((float)totalObserverCount / maxObserversPerColumn);
+        int numRows = Mathf.Min(totalObserverCount, maxObserversPerColumn);
 
-        // 2. Cálculo da Altura Total (Baseada na coluna mais alta)
-        int numRows = Mathf.Min(totalObserverCount, maxObserversPerColumn); // Número de linhas na coluna mais alta
+        // Dimensões REAIS da área dos slots.
+        float observersAreaHeight = numRows * ObserverSize + (numRows - 1) * spacing;
+        float observersAreaWidth = numColumns * ObserverSize + (numColumns - 1) * spacing;
 
-        // Altura Total: (Número de linhas * ObserverSize) + (Número de espaços entre linhas * Spacing)
-        TotalHeight = numRows * ObserverSize + (numRows - 1) * spacing;
+        // --- 2. CÁLCULO DE DIMENSÕES FINAIS E DESLOCAMENTO ---
 
-        // 3. Cálculo da Largura Total
-        // Largura Total: (Número de colunas * ObserverSize) + (Número de espaços entre colunas * Spacing)
-        TotalWidth = numColumns * ObserverSize + (numColumns - 1) * spacing;
+        // Largura Final: Máximo entre a largura dos Observers e a largura do Actor
+        TotalWidth = Mathf.Max(observersAreaWidth, ActorWidth);
 
-        // Offset centralizado:
-        float baseOffsetX = -(TotalWidth / 2f) + (ObserverSize / 2f);
+        // Altura Total da Estrutura (Slots + Spacing + Actor)
+        float totalStructureHeight = observersAreaHeight + ActorHeight + ActorSpacing;
+        TotalHeight = totalStructureHeight;
 
-        // --- Criação e Escala do Fundo da Área ---
+        // Deslocamento para centralizar a estrutura TOTAL (Actor + Slots) em Y=0.
+        // O ponto mais alto da estrutura (topo do Actor) está em: totalStructureHeight / 2
+        // O ponto mais baixo (base do último slot) está em: -observersAreaHeight / 2f
+        // O centro da estrutura inteira é 0 no sistema de coordenadas do ObserversManager.
+
+        // Deslocamento do centro da ÁREA DOS OBSERVERS em relação ao Y=0:
+        // A área dos observers deve ser empurrada para baixo em (ActorHeight + ActorSpacing) / 2
+        // para que o centro da estrutura total fique em Y=0.
+        float observersAreaCenterYOffset = -(ActorHeight + ActorSpacing) / 2f;
+
+
+        // Offset centralizado para slots e observers (baseado na largura dos slots)
+        float baseOffsetX = -(observersAreaWidth / 2f) + (ObserverSize / 2f);
+
+        // --- 3. POSICIONAMENTO DO OBSERVE ACTOR (Referência Externa) ---
+        if (ObserveActorRenderer != null)
+        {
+            ObserveActorRenderer.transform.localScale = new Vector3(ActorWidth, ActorHeight, 1f);
+
+            // Posição Y: O topo da área dos observers (observersAreaHeight / 2f) + o espaçamento
+            // Posição Y no sistema de coordenadas do ObserversManager (Y=0 no centro da ESTRUTURA)
+            float actorYPos = (observersAreaHeight / 2f) + ActorSpacing + (ActorHeight / 2f);
+
+            // Aplicamos o deslocamento vertical (offset) para centralizar
+            actorYPos += observersAreaCenterYOffset;
+
+            ObserveActorRenderer.transform.localPosition = new Vector3(0f, actorYPos, 0);
+        }
+
+
+        // --- 4. CRIAÇÃO E ESCALA DO FUNDO DA ÁREA (Ajustado) ---
         if (BackgroundSprite != null)
         {
             SpriteRenderer bgRenderer = CreateSprite("Background Area", BackgroundSprite, BackgroundColor, -2);
             _backgroundInstance = bgRenderer.gameObject;
 
-            // O fundo deve ser exatamente do tamanho TotalWidth e TotalHeight calculados.
-            // Não precisamos de padding adicional se quisermos que ele contenha APENAS os slots.
+            // O fundo Cobre APENAS a área dos slots.
+            float backgroundScaleX = observersAreaWidth / ObserverSize;
+            float backgroundScaleY = observersAreaHeight / ObserverSize;
 
-            float backgroundScaleX = TotalWidth / ObserverSize;
-            float backgroundScaleY = TotalHeight / ObserverSize;
-
-            // Centraliza o fundo no Y
-            // O centro vertical é 0, já que a posição dos slots deve ser simétrica em relação ao centro (0) do ObserversManager.
-            float backgroundYPos = 0f;
+            // O centro vertical do background deve ser o centro da ÁREA DOS SLOTS
+            // (o offset total da área)
+            float backgroundYPos = observersAreaCenterYOffset;
 
             _backgroundInstance.transform.localPosition = new Vector3(0, backgroundYPos, 0);
-
-            // Aplica a escala exata
             _backgroundInstance.transform.localScale = new Vector3(backgroundScaleX, backgroundScaleY, 1f);
         }
-        // --- FIM Fundo da Área ---
 
-        // Loop 1: Cria todos os slots visuais (totalObserverCount)
+
+        // --- 5. POSICIONAMENTO DE SLOTS E OBSERVERS ---
+
+        float columnTop = observersAreaHeight / 2f;
+        float startY = columnTop - (ObserverSize / 2f);
+
         for (int i = 0; i < totalObserverCount; i++)
         {
             int indexInColumn = i % maxObserversPerColumn;
             int columnIndex = i / maxObserversPerColumn;
 
-            // --- POSICIONAMENTO Y AJUSTADO (agora usa TotalHeight para centralizar corretamente) ---
+            // Posição Y base (sem offset)
+            float yPosBase = startY - (indexInColumn * (ObserverSize + spacing));
 
-            // Encontra o topo da coluna de slots
-            float columnTop = TotalHeight / 2f;
+            // Posição Y final (aplicando o deslocamento de centralização)
+            float yPosFinal = yPosBase + observersAreaCenterYOffset;
 
-            // Calcula o ponto inicial para o primeiro slot (Topo - metade do ObserverSize)
-            float startY = columnTop - (ObserverSize / 2f);
-
-            // Posição Y com espaçamento vertical:
-            float yPos = startY - (indexInColumn * (ObserverSize + spacing));
-
-            // Posição X com espaçamento horizontal:
             float xPos = columnIndex * (ObserverSize + spacing);
             xPos += baseOffsetX;
 
-            // Criação do Slot Visual no local calculado
+            // Criação do Slot Visual
             if (SlotSprite != null)
             {
                 SpriteRenderer slotRenderer = CreateSprite($"Slot_{i}", SlotSprite, SlotColor, -1);
                 GameObject slotInstance = slotRenderer.gameObject;
 
-                slotInstance.transform.localPosition = new Vector3(xPos, yPos, 0);
+                slotInstance.transform.localPosition = new Vector3(xPos, yPosFinal, 0);
                 slotInstance.transform.localScale = Vector3.one;
 
                 _slotInstances.Add(slotInstance);
             }
+
+            // Reposiciona APENAS os Observers disponíveis
+            if (i < availableObservers.Count)
+            {
+                Observer observer = availableObservers[i];
+
+                observer.transform.SetParent(this.transform);
+                observer.transform.localPosition = new Vector3(xPos, yPosFinal, 0);
+                observer.transform.localScale = Vector3.one;
+                observer.gameObject.name = $"Observer {i + 1} (Col {columnIndex})";
+            }
         }
 
-        // Loop 2: Reposiciona APENAS os Observers disponíveis
-        for (int i = 0; i < availableObservers.Count; i++)
-        {
-            Observer observer = availableObservers[i];
+        UpdateObserveActorState();
+    }
 
-            int indexInColumn = i % maxObserversPerColumn;
-            int columnIndex = i / maxObserversPerColumn;
+    public void UpdateObserveActorState()
+    {
+        if (ObserveActorRenderer == null) return;
 
-            // Calcula a posição Y e X novamente, garantindo que o Observer fique exatamente sobre o Slot
-            float columnTop = TotalHeight / 2f;
-            float startY = columnTop - (ObserverSize / 2f);
-            float yPos = startY - (indexInColumn * (ObserverSize + spacing));
+        bool isInteractable = _currentObservers.Any(o => o.CurrentSlot != null);
 
-            float xPos = columnIndex * (ObserverSize + spacing);
-            xPos += baseOffsetX;
-
-            observer.transform.SetParent(this.transform);
-            observer.transform.localPosition = new Vector3(xPos, yPos, 0);
-            observer.transform.localScale = Vector3.one;
-            observer.gameObject.name = $"Observer {i + 1} (Col {columnIndex})";
-        }
+        ObserveActorRenderer.color = isInteractable ? InteractableColor : NotInteractableColor;
     }
 }

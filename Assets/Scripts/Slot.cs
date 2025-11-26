@@ -45,6 +45,7 @@ public class Slot : MonoBehaviour
         {
             CurrentDecayType = CurrentObserver.decay;
             CurrentObserver.CurrentSlot = this;
+            CurrentObserver.manager.UpdateObserveActorState();
             CurrentObserver.transform.position = transform.position;
 
             // ⚠️ NOVO: Só rotaciona se o tipo de influência for Line.
