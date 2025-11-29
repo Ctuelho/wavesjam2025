@@ -340,7 +340,7 @@ public class LevelFeedbackUI : MonoBehaviour
                     // O pitch cresce de startPitch para endPitch baseado no valor da barra (x)
                     float currentPitch = Mathf.Lerp(startPitch, endPitch, x);
                     audioSource.pitch = currentPitch;
-
+                    audioSource.volume = BackgroundMusicManager.CurrentVolume;
                     audioSource.PlayOneShot(fillSoundClip);
 
                     // ATUALIZAÇÃO: Define o tempo que o próximo som poderá ser tocado
@@ -541,19 +541,19 @@ public class LevelFeedbackUI : MonoBehaviour
             case 1:
                 starRect = star1Rect;
                 starClip = star1Clip1; // 🌟 NOVO: Atribui o clip
-                starAudioSource.volume = Volume1;
+                starAudioSource.volume = Volume1 * BackgroundMusicManager.CurrentVolume;
                 starAudioSource.pitch = Pitch1;
                 break;
             case 2:
                 starRect = star2Rect;
                 starClip = star2Clip; // 🌟 NOVO: Atribui o clip
-                starAudioSource.volume = Volume2;
+                starAudioSource.volume = Volume2 * BackgroundMusicManager.CurrentVolume;
                 starAudioSource.pitch = Pitch2;
                 break;
             case 3:
                 starRect = star3Rect;
                 starClip = star3Clip; // 🌟 NOVO: Atribui o clip
-                starAudioSource.volume = Volume3;
+                starAudioSource.volume = Volume3 * BackgroundMusicManager.CurrentVolume;
                 starAudioSource.pitch = Pitch3;
                 break;
         }

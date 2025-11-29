@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6777228086896724907}
   - component: {fileID: 2367901447610262078}
   - component: {fileID: 406627001354906490}
+  - component: {fileID: -5539985498464586861}
   m_Layer: 0
   m_Name: Wave
   m_TagString: Untagged
@@ -318,3 +319,16 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &-5539985498464586861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1419075672708548832}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8453b8c53a9f0544786ed674d6f7584a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseVolume: 1

@@ -1023,6 +1023,7 @@ GameObject:
   - component: {fileID: 6881645946499413620}
   - component: {fileID: 656724805121882161}
   - component: {fileID: 7806778667293840752}
+  - component: {fileID: 6384663453954995078}
   m_Layer: 0
   m_Name: LevelPrefab
   m_TagString: Untagged
@@ -1236,6 +1237,19 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6384663453954995078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7254018115828409312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8453b8c53a9f0544786ed674d6f7584a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseVolume: 1
 --- !u!1 &8461705144098996677
 GameObject:
   m_ObjectHideFlags: 0

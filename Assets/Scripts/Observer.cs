@@ -18,7 +18,7 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 
     // CanRotate agora só deve ser relevante se influenceType for Line.
     public bool CanRotate = true;
-    public int range = 0;
+    //public int range = 0;
     public int force = 0;
     public Slot.DecayType decay = Slot.DecayType.DoesNotDecay;
     internal ObserversManager manager;
@@ -111,26 +111,6 @@ public class Observer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
         {
             transform.position = _startPosition;
             transform.SetParent(_startParent);
-        }
-    }
-
-    public void IncreaseRange()
-    {
-        range++;
-
-        if (range > WavesManager.GridSize)
-        {
-            range = 0;
-        }
-    }
-
-    public void DecreaseRange()
-    {
-        range--;
-
-        if (range < 0)
-        {
-            range = WavesManager.GridSize;
         }
     }
 }

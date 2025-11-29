@@ -4,7 +4,7 @@ using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine.EventSystems;
 using DG.Tweening;
-using UnityEngine.UIElements.Experimental; // NECESSÁRIO PARA DOTWEEN E O NOVO ENUM EASE
+// using UnityEngine.UIElements.Experimental; // Removido, pois não é necessário após o uso de DG.Tweening.Ease
 
 public class Wave : MonoBehaviour//, IPointerClickHandler
 {
@@ -21,7 +21,7 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
     public List<Influence> Influences = new List<Influence>();
     public Influence NeighborsInfluence = new Influence();
     public float Collapse = 0.0f;
-    private float targetCollapse = 0.0f;
+    private float targetCollapse = 0.0f; // Manter para o PreviewCollapse
 
     [Header("Collapse Settings (Preview)")]
     public float CollapseSpeed = 0.1f;
@@ -88,40 +88,56 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
         }
     }
 
-    public void PreviewCollapse()
+    /// <summary>
+    /// Calcula o valor de colapso alvo (targetCollapse) como a média real das influências.
+    /// </summary>
+    /// <returns>O valor de targetCollapse normalizado entre 0 e 1.</returns>
+    private float CalculateCurrentTargetCollapse()
     {
-        targetCollapse = 0.0f;
+        float totalInfluence = 0.0f;
 
         foreach (var influence in Influences)
         {
             if (influence.source != null)
             {
-                targetCollapse += influence.value;
+                totalInfluence += influence.value;
             }
         }
 
-        targetCollapse += NeighborsInfluence.value;
+        totalInfluence += NeighborsInfluence.value;
 
+        // O divisor deve ser o CurrentNeighborCount (vindo da WavesManager)
+        // mais o número de outras influências (Observadores + SelfInfluence).
         float divisor = (float)CurrentNeighborCount + Influences.Count;
+
+        float calculatedTarget = 0.0f;
 
         if (divisor > 0)
         {
-            targetCollapse /= divisor;
+            calculatedTarget = totalInfluence / divisor;
         }
-        else
-        {
-            targetCollapse = 0.0f;
-        }
+        // Se divisor for 0, calculatedTarget permanece 0.0f, o que está correto.
 
+        return Mathf.Clamp01(calculatedTarget);
+    }
+
+    public void PreviewCollapse()
+    {
+        // 1. Calcula o alvo real, SEM suavização
+        float realTarget = CalculateCurrentTargetCollapse();
+        targetCollapse = realTarget; // Armazena o alvo real para CollapseNow usá-lo, se necessário
+
+        // 2. Aplica a suavização (tween) entre o Collapse atual e o alvo real (targetCollapse)
         float t = Time.deltaTime * CollapseSpeed;
         t = Mathf.Clamp01(t);
 
         float easedT = DOVirtual.EasedValue(0, 1, t, PreviewEaseType);
 
-        targetCollapse = Mathf.Clamp01(targetCollapse);
+        // Collapse suavizado (tweened)
         Collapse = Mathf.Lerp(Collapse, targetCollapse, easedT);
         Collapse = Mathf.Clamp01(Collapse);
 
+        // 3. Aplica a cor com base no valor Collapse suavizado
         Color newColor = ColorGradient.Evaluate(Collapse);
         Renderer.color = newColor;
     }
@@ -133,16 +149,23 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
             return Collapse;
         }
 
+        float collapseValueToCheck = targetCollapse; // Usar o targetCollapse real para buscar o alvo discreto
+
         float nearestTarget = DiscreteCollapseTargets[0];
-        float minDifference = Mathf.Abs(Collapse - nearestTarget);
+        float minDifference = Mathf.Abs(collapseValueToCheck - nearestTarget);
 
         foreach (float target in DiscreteCollapseTargets)
         {
-            float difference = Mathf.Abs(Collapse - target);
+            float difference = Mathf.Abs(collapseValueToCheck - target);
 
             if (difference < minDifference)
             {
                 minDifference = difference;
+                nearestTarget = target;
+            }
+            // Prioriza o alvo maior em caso de empate para evitar valores muito baixos (ex: 0.35 para 0.2 vs 0.4)
+            else if (Mathf.Approximately(difference, minDifference) && target > nearestTarget)
+            {
                 nearestTarget = target;
             }
         }
@@ -151,40 +174,44 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
 
     private Vector3 originalPosition;
     public Ease ToEase = Ease.Linear;
-    // MÉTODO MODIFICADO
+
+    /// <summary>
+    /// Colapsa a onda imediatamente, usando o valor REAL e atual das influências como ponto de partida para o tween final.
+    /// </summary>
     public void CollapseNow(float delay = 0)
     {
-        Collapse = targetCollapse;
         originalPosition = transform.localPosition;
 
-        // 0. Interrompe tweens anteriores (importante para evitar jumps e conflitos de cor)
-        DOTween.Kill(this.transform);
+        // 🛑 MUDANÇA CRÍTICA: Recalcula o alvo real e ATUALIZA o Collapse para esse valor.
+        // Isso força a onda a "começar" o colapso a partir da média não-tweened das influências.
+        float startingCollapse = CalculateCurrentTargetCollapse();
+        Collapse = startingCollapse;
 
-        // 1. Encontrar o alvo de colapso discreto
+        // 0. Interrompe tweens anteriores
+        DOTween.Kill(this.transform, true); // True para completar o Shake anterior imediatamente
+
+        // 1. Encontrar o alvo de colapso discreto final
+        // O valor base para encontrar o alvo discreto é o 'startingCollapse' (que foi o alvo real)
         float finalCollapseTarget = FindNearestDiscreteTarget();
 
-        //if (Collapse < 0.3f)
-        //    Collapse = 0.3f;
-
         // 2. TWEEN DO VALOR DE COLAPSO (Collapse) E DA COR
-        // Faz o tween do Collapse do valor atual para o alvo final
-        DOTween.To(() => Collapse, x => Collapse = x, finalCollapseTarget, ShakeDuration+ delay)
-            .SetEase(ToEase) // Mantenha Linear para uma transição de valor suave e contínua
+        // Faz o tween do Collapse do valor 'startingCollapse' (o valor real) para o alvo final discreto
+        DOTween.To(() => Collapse, x => Collapse = x, finalCollapseTarget, ShakeDuration + delay)
+            .SetEase(ToEase)
+            .SetTarget(this.transform) // Target no transform para Kill futuros
             .OnUpdate(() =>
             {
-                // A. ATUALIZA A COR: A cada frame do tween, atualiza a cor
-                // usando o valor de Collapse tweenado e o TargetCollapseGradient.
+                // A. ATUALIZA A COR: Usa o TargetCollapseGradient, pois estamos no estado de colapso final.
                 Renderer.color = TargetCollapseGradient.Evaluate(Collapse);
             })
             .OnComplete(() =>
             {
                 // Garante que o valor final seja exatamente o alvo discreto
                 Collapse = finalCollapseTarget;
-                // A cor final já foi definida no último OnUpdate.
-            })
-            .SetTarget(this); // Target no script para Kill futuros
+                Renderer.color = TargetCollapseGradient.Evaluate(Collapse);
+            });
 
-        // 3. SHAKE DE POSIÇÃO (corre em paralelo com o tween de valor/cor)
+        // 3. SHAKE DE POSIÇÃO (corre em paralelo)
         transform.DOShakePosition(
             ShakeDuration + delay,
             ShakeStrength,
@@ -195,15 +222,13 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
         {
             // Garante que a posição volte ao zero exato.
             transform.localPosition = originalPosition;
-            if(finalCollapseTarget > 0)
+            if (finalCollapseTarget > 0)
             {
-                audioSource.Play();
-            }            
+                if (audioSource != null)
+                {
+                    audioSource.Play();
+                }
+            }
         });
     }
-
-    //public void OnPointerClick(PointerEventData eventData)
-    //{
-    // ... (código desativado)
-    //}
 }

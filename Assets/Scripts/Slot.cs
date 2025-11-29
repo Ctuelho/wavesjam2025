@@ -15,10 +15,11 @@ public class Slot : MonoBehaviour
     public GameObject ObserverControllerPrefab;
     private GameObject _currentObserverController;
 
-    private WavesManager _manager;
+    private WavesManager _manager; // Assumimos que tem acesso a 'gridSize'
 
     public enum DecayType { DoesNotDecay = 0, VerySlow = 2, Slow = 3, Medium = 4, Fast = 5, VeryFast = 6 }
     public DecayType CurrentDecayType = DecayType.DoesNotDecay;
+    public int currentRange; // <--- Variável do slot para controlar o range
 
     public enum CornerType { None = 0, TopLeft = 1, TopRight = 2, BottomLeft = 3, BottomRight = 4 }
     public enum DirectionType { None, Up, Down, Left, Right, Diagonal_UpLeft, Diagonal_UpRight, Diagonal_DownLeft, Diagonal_DownRight }
@@ -47,6 +48,18 @@ public class Slot : MonoBehaviour
             CurrentObserver.CurrentSlot = this;
             CurrentObserver.manager.UpdateObserveActorState();
             CurrentObserver.transform.position = transform.position;
+
+            // 🆕 NOVO: Inicializa currentRange com o gridSize do WavesManager
+            if (_manager != null)
+            {
+                // Assumindo que _manager.GridSize existe e é o valor máximo desejado.
+                currentRange = WavesManager.GridSize;
+                Debug.Log($"Slot ({GridX}, {GridY}) Range inicializado para: {currentRange}");
+            }
+            else
+            {
+                currentRange = 1;
+            }
 
             // ⚠️ NOVO: Só rotaciona se o tipo de influência for Line.
             if (CurrentObserver.influenceType == Observer.InfluenceType.Line)
@@ -86,25 +99,55 @@ public class Slot : MonoBehaviour
             CurrentObserver.CurrentSlot = null;
             CurrentObserver.transform.SetParent(null);
             CurrentObserver = null;
+            currentRange = 0; // 🆕 Limpa o range ao remover
         }
     }
 
+    // 🔄 Método para ciclar o tipo de decaimento (DecayType)
     public void CycleDecayType()
     {
         if (CurrentObserver == null) return;
 
         int nextDecay = ((int)CurrentDecayType + 1) % (System.Enum.GetValues(typeof(DecayType)).Length);
         CurrentDecayType = (DecayType)nextDecay;
+        CurrentObserver.decay = CurrentDecayType; // 🆕 Atualiza o Observer
 
-        Debug.Log($"Slot ({GridX}, {GridY}) Decay alterado para: {CurrentDecayType}");
+        //Debug.Log($"Slot ({GridX}, {GridY}) Decay alterado para: {CurrentDecayType}");
 
         if (_manager != null)
         {
-            // Chamada simplificada, sem passar a lista de efeitos.
             _manager.ApplyObserverInfluenceAndShowEffects(CurrentObserver, this, CurrentObserver.WaveEffectPrefab);
         }
     }
 
+    // 🆕 NOVO: Método para ciclar o alcance (Range)
+    public void CycleRange()
+    {
+        if (CurrentObserver == null || _manager == null) return;
+
+        int maxRange = WavesManager.GridSize;
+        int minRange = 1;
+
+        // Incrementa o range. Se ultrapassar o máximo, volta para o mínimo.
+        int nextRange = currentRange + 1;
+
+        if (nextRange > maxRange)
+        {
+            nextRange = minRange;
+        }
+
+        currentRange = nextRange;
+
+        Debug.Log($"Slot ({GridX}, {GridY}) Range alterado para: {currentRange} (Min: {minRange}, Max: {maxRange})");
+
+        if (_manager != null)
+        {
+            // Re-aplica a influência com o novo alcance
+            _manager.ApplyObserverInfluenceAndShowEffects(CurrentObserver, this, CurrentObserver.WaveEffectPrefab);
+        }
+    }
+
+    // ... (Métodos UpdateObserverRotation, InstantiateEffectObject, DestroyEffectObject, HandleObserverDrop)
     private void UpdateObserverRotation(Transform observerTransform)
     {
         Observer observerScript = observerTransform.GetComponent<Observer>();
@@ -148,16 +191,7 @@ public class Slot : MonoBehaviour
             _currentObserverController.transform.localPosition = Vector3.zero;
 
             // 3. Garante que a ROTAÇÃO LOCAL seja zero (Quaternion.identity).
-            // Isto faz com que ele herde a ROTAÇÃO GLOBAL do pai (Observer),
-            // mas depois a ZERA, mantendo sua orientação na identidade do mundo,
-            // desde que o Observer não esteja no mundo rodado.
-            _currentObserverController.transform.localRotation = Quaternion.identity; // <--- Rotação local zerada
-
-            // 4. Se o Observer já estiver rotacionado (ex: 90 graus), o controller TAMBÉM
-            // estará rotacionado 90 graus. Para COMPENSAR a rotação do PAI,
-            // você precisa ZERAR a rotação *global* OU desanexá-lo imediatamente,
-            // mas o mais simples é garantir que a rotação local seja zero e 
-            // que a rotação do Observer seja baseada no mundo.
+            _currentObserverController.transform.localRotation = Quaternion.identity;
 
             // ⚠️ O método mais robusto: Instanciar no pai, mas garantir que a ROTAÇÃO GLOBAL seja a identidade.
             _currentObserverController.transform.rotation = Quaternion.identity; // <--- ZERA a rotação GLOBAL (o mais importante)

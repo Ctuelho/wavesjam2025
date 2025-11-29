@@ -339,8 +339,11 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  Interactable: 1
   hoverColor: {r: 0.6706916, g: 0.29369885, b: 0.8301887, a: 1}
   clickColor: {r: 0.3618569, g: 0.25832146, b: 0.4056604, a: 1}
+  originalColor: {r: 0, g: 0, b: 0, a: 0}
+  getOriginalColor: 1
 --- !u!61 &2131767567058664827
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -591,8 +594,11 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  Interactable: 1
   hoverColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   clickColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  originalColor: {r: 0, g: 0, b: 0, a: 0}
+  getOriginalColor: 1
 --- !u!60 &7898227505112816336
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -759,8 +765,11 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  Interactable: 1
   hoverColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   clickColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  originalColor: {r: 0, g: 0, b: 0, a: 0}
+  getOriginalColor: 1
 --- !u!60 &8059726399924621000
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -928,8 +937,11 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  Interactable: 1
   hoverColor: {r: 0.6706916, g: 0.29369885, b: 0.8301887, a: 1}
   clickColor: {r: 0.3618569, g: 0.25832146, b: 0.4056604, a: 1}
+  originalColor: {r: 0, g: 0, b: 0, a: 0}
+  getOriginalColor: 1
 --- !u!61 &2095275029441173671
 BoxCollider2D:
   m_ObjectHideFlags: 0

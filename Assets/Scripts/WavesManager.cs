@@ -552,6 +552,9 @@ public class WavesManager : MonoBehaviour
 
     private float CalculateDecayFactorRadial(Slot.DecayType decayType, float normalizedDistance)
     {
+        //not using this anymore
+        return 1f;
+
         if (decayType == Slot.DecayType.DoesNotDecay)
         {
             return 1f;
@@ -573,6 +576,9 @@ public class WavesManager : MonoBehaviour
 
     private float CalculateDecayFactor(Slot.DecayType decayType, int waveIndex, int totalWavesAffected)
     {
+        //not using this anymore
+        return 1f;
+
         if (decayType == Slot.DecayType.DoesNotDecay)
         {
             return 1f;
@@ -611,7 +617,8 @@ public class WavesManager : MonoBehaviour
         RemoveInfluenceSource(observer);
 
         float waveSize = WaveSize;
-        float observerRange = observer.range * waveSize;
+        // 🛑 MUDANÇA: Usar slot.currentRange (int)
+        float observerRange = slot.currentRange * waveSize;
         float observerForce = observer.force;
         Slot.DecayType decayType = slot.CurrentDecayType;
 
@@ -672,7 +679,8 @@ public class WavesManager : MonoBehaviour
         RemoveInfluenceSource(observer);
 
         Slot.DecayType decayType = slot.CurrentDecayType;
-        int observerRange = observer.range;
+        // 🛑 MUDANÇA: Usar slot.currentRange (int)
+        int observerRange = slot.currentRange;
         Slot.DirectionType direction = slot.Direction;
 
         int startWaveX = slot.GridX - 1;
@@ -684,6 +692,7 @@ public class WavesManager : MonoBehaviour
 
         if (dx == 0 && dy == 0) return;
 
+        // 🛑 MUDANÇA: Se o range for 0 (no caso de inicialização), recalcular
         if (observerRange == 0)
         {
             if (dx != 0 && dy != 0)
@@ -875,7 +884,7 @@ public class WavesManager : MonoBehaviour
         }
 
 
-            for (int i = 0; i < _gridX; i++)
+        for (int i = 0; i < _gridX; i++)
         {
             for (int j = 0; j < _gridY; j++)
             {
