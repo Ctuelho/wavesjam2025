@@ -213,9 +213,10 @@ public class LevelFeedbackUI : MonoBehaviour
         Vector3 targetPosition = Vector3.zero;
         Vector3 targetScale = Vector3.one * Mathf.Max(actualGridWidth, actualGridHeight);
         Sequence spriteSequence = DOTween.Sequence();
-        spriteSequence.Append(_leftSprite.transform.DOMove(targetPosition, spriteMoveDuration).SetEase(spriteMoveEase));
-        spriteSequence.Join(_leftSprite.transform.DOScale(targetScale, spriteScaleDuration).SetEase(spriteScaleEase));
-        spriteSequence.OnComplete(AnimateProgressBar);
+        //spriteSequence.Append(_leftSprite.transform.DOMove(targetPosition, spriteMoveDuration).SetEase(spriteMoveEase));
+        //spriteSequence.Join(_leftSprite.transform.DOScale(targetScale, spriteScaleDuration).SetEase(spriteScaleEase));
+        //spriteSequence.OnComplete(AnimateProgressBar);
+        AnimateProgressBar();
     }
 
     private void AnimateProgressBar()

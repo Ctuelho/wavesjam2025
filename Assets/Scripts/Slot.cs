@@ -61,16 +61,16 @@ public class Slot : MonoBehaviour
                 currentRange = 1;
             }
 
-            // ⚠️ NOVO: Só rotaciona se o tipo de influência for Line.
-            if (CurrentObserver.influenceType == Observer.InfluenceType.Line)
-            {
-                UpdateObserverRotation(CurrentObserver.transform);
-            }
-            else
-            {
-                // Se for Radius, garante que a rotação seja zero.
-                CurrentObserver.transform.rotation = Quaternion.identity;
-            }
+            UpdateObserverRotation(CurrentObserver.transform);            
+            //if (CurrentObserver.influenceType == Observer.InfluenceType.Line)
+            //{
+            //    UpdateObserverRotation(CurrentObserver.transform);
+            //}
+            //else
+            //{
+            //    // Se for Radius, garante que a rotação seja zero.
+            //    CurrentObserver.transform.rotation = Quaternion.identity;
+            //}
 
             InstantiateEffectObject(CurrentObserver.transform);
 
@@ -129,11 +129,15 @@ public class Slot : MonoBehaviour
         int minRange = 1;
 
         // Incrementa o range. Se ultrapassar o máximo, volta para o mínimo.
-        int nextRange = currentRange + 1;
+        int nextRange = currentRange + -1;
 
         if (nextRange > maxRange)
         {
             nextRange = minRange;
+        }
+        else if(nextRange < 0)
+        {
+            nextRange = maxRange;
         }
 
         currentRange = nextRange;

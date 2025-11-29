@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 39548939694748233}
   - component: {fileID: 2539656616343030808}
   m_Layer: 0
-  m_Name: CPAHigh
+  m_Name: CPALow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -50,7 +50,7 @@ MonoBehaviour:
   WaveEffectPrefab: {fileID: 1419075672708548832, guid: 748a432e495574f43a947bf25a86949f, type: 3}
   influenceType: 0
   CanRotate: 1
-  force: -3
+  force: -1
   decay: 0
 --- !u!212 &39548939694748233
 SpriteRenderer:
@@ -219,7 +219,7 @@ SpriteRenderer:
   m_SortingLayerID: -322686833
   m_SortingLayer: 2
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 8391142e6d615e84d8dc9aec4bd1369a, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 70344706ae3359444ba681cc685b2b5f, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

@@ -15,7 +15,7 @@ public class ObserverController : MonoBehaviour
     {
         if (targetSlot != null)
         {
-            targetSlot.CycleDecayType();
+            //targetSlot.CycleDecayType();
             targetSlot.CycleRange();
         }
     }
