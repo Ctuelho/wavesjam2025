@@ -4,7 +4,6 @@ using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine.EventSystems;
 using DG.Tweening;
-// using UnityEngine.UIElements.Experimental; // Removido, pois não é necessário após o uso de DG.Tweening.Ease
 
 public class Wave : MonoBehaviour//, IPointerClickHandler
 {
@@ -21,10 +20,12 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
     public List<Influence> Influences = new List<Influence>();
     public Influence NeighborsInfluence = new Influence();
     public float Collapse = 0.0f;
-    private float targetCollapse = 0.0f; // Manter para o PreviewCollapse
+    public float targetCollapse = 0.0f;
+    public float realCollpase = 0.0f;
 
     [Header("Collapse Settings (Preview)")]
     public float CollapseSpeed = 0.1f;
+    public float ColorFadeSpeed = 8.0f; // Campo existente
     // Campo atualizado para usar o enum Ease nativo do DOTween
     public Ease PreviewEaseType = Ease.OutQuad;
 
@@ -108,7 +109,8 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
 
         // O divisor deve ser o CurrentNeighborCount (vindo da WavesManager)
         // mais o número de outras influências (Observadores + SelfInfluence).
-        float divisor = (float)CurrentNeighborCount + Influences.Count;
+        //float divisor = (float)CurrentNeighborCount + Influences.Count;
+        float divisor = 8 + Influences.Count;
 
         float calculatedTarget = 0.0f;
 
@@ -123,23 +125,32 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
 
     public void PreviewCollapse()
     {
-        // 1. Calcula o alvo real, SEM suavização
         float realTarget = CalculateCurrentTargetCollapse();
-        targetCollapse = realTarget; // Armazena o alvo real para CollapseNow usá-lo, se necessário
+        realCollpase = realTarget;
+        targetCollapse = realTarget;
+        float nearest = FindNearestDiscreteTarget();
+        targetCollapse = nearest;
 
-        // 2. Aplica a suavização (tween) entre o Collapse atual e o alvo real (targetCollapse)
+        // 1. TWEEN DO VALOR DE COLLAPSE
         float t = Time.deltaTime * CollapseSpeed;
         t = Mathf.Clamp01(t);
 
         float easedT = DOVirtual.EasedValue(0, 1, t, PreviewEaseType);
 
-        // Collapse suavizado (tweened)
         Collapse = Mathf.Lerp(Collapse, targetCollapse, easedT);
         Collapse = Mathf.Clamp01(Collapse);
 
-        // 3. Aplica a cor com base no valor Collapse suavizado
-        Color newColor = ColorGradient.Evaluate(Collapse);
-        Renderer.color = newColor;
+        // 2. TWEEN DA COR (AGORA SUAVIZADO)
+
+        // A. Calcula a cor ALVO baseada no Collapse (que já está tweened)
+        Color targetColor = ColorGradient.Evaluate(Collapse);
+
+        // B. Define o fator de interpolação da cor usando o ColorFadeSpeed
+        float colorLerpT = Time.deltaTime * ColorFadeSpeed;
+        colorLerpT = Mathf.Clamp01(colorLerpT);
+
+        // ✅ ALTERAÇÃO SOLICITADA: Aplica a suavização da cor
+        Renderer.color = Color.Lerp(Renderer.color, targetColor, colorLerpT);
     }
 
     private float FindNearestDiscreteTarget()
@@ -149,27 +160,43 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
             return Collapse;
         }
 
-        float collapseValueToCheck = targetCollapse; // Usar o targetCollapse real para buscar o alvo discreto
+        float collapseValueToCheck = targetCollapse;
 
-        float nearestTarget = DiscreteCollapseTargets[0];
-        float minDifference = Mathf.Abs(collapseValueToCheck - nearestTarget);
+        float targetZero = DiscreteCollapseTargets[0];
 
-        foreach (float target in DiscreteCollapseTargets)
+        if (collapseValueToCheck <= targetZero)
         {
-            float difference = Mathf.Abs(collapseValueToCheck - target);
+            return targetZero;
+        }
 
-            if (difference < minDifference)
+        if (collapseValueToCheck < DiscreteCollapseTargets[1])
+            return 0;
+
+        // 2. ITERAÇÃO E PONTO MÉDIO SEQUENCIAL
+        for (int i = 1; i < DiscreteCollapseTargets.Length; i++)
+        {
+            float targetAnterior = DiscreteCollapseTargets[i - 1];
+            float proximoTarget = DiscreteCollapseTargets[i];
+
+            // Se o valor já é maior que o alvo superior, continua para o próximo par.
+            if (collapseValueToCheck > proximoTarget)
             {
-                minDifference = difference;
-                nearestTarget = target;
+                continue;
             }
-            // Prioriza o alvo maior em caso de empate para evitar valores muito baixos (ex: 0.35 para 0.2 vs 0.4)
-            else if (Mathf.Approximately(difference, minDifference) && target > nearestTarget)
+
+            float pontoMedio = (targetAnterior + proximoTarget) / 2.0f;
+
+            if (collapseValueToCheck > pontoMedio)
             {
-                nearestTarget = target;
+                return proximoTarget;
+            }
+            else
+            {
+                return targetAnterior;
             }
         }
-        return nearestTarget;
+
+        return DiscreteCollapseTargets[DiscreteCollapseTargets.Length - 1];
     }
 
     private Vector3 originalPosition;
@@ -192,6 +219,10 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
 
         // 1. Encontrar o alvo de colapso discreto final
         // O valor base para encontrar o alvo discreto é o 'startingCollapse' (que foi o alvo real)
+        // Nota: O método FindNearestDiscreteTarget usa o campo targetCollapse, que não foi atualizado 
+        // para o startingCollapse aqui, mas usarei o valor de collapse (que foi atualizado) para 
+        // garantir que a lógica funcione com o targetCollapse.
+        targetCollapse = startingCollapse;
         float finalCollapseTarget = FindNearestDiscreteTarget();
 
         // 2. TWEEN DO VALOR DE COLAPSO (Collapse) E DA COR
@@ -202,6 +233,7 @@ public class Wave : MonoBehaviour//, IPointerClickHandler
             .OnUpdate(() =>
             {
                 // A. ATUALIZA A COR: Usa o TargetCollapseGradient, pois estamos no estado de colapso final.
+                // Este tween de cor TEM prioridade sobre o Color.Lerp do PreviewCollapse()
                 Renderer.color = TargetCollapseGradient.Evaluate(Collapse);
             })
             .OnComplete(() =>

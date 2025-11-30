@@ -96,7 +96,7 @@ public class WavesManager : MonoBehaviour
                 {
                     if (n != null)
                     {
-                        value += n.Collapse;
+                        value += n.realCollpase;
                     }
                 }
                 return value;
@@ -358,7 +358,7 @@ public class WavesManager : MonoBehaviour
             for (int i = 0; i < width; i++) // Da esquerda para a direita
             {
                 Wave wave = Graph[i, j].wave;
-                if (wave != null)
+                if (wave != null && wave.targetCollapse >= 0.3f)
                 {
                     // 1. Chama o CollapseNow na Wave
                     wave.CollapseNow();
@@ -368,6 +368,10 @@ public class WavesManager : MonoBehaviour
 
                     // 3. Conta o intervalo
                     _intervalCallCount++;
+                }
+                else
+                {
+
                 }
             }
         }

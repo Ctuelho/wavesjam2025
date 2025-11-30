@@ -50,7 +50,7 @@ MonoBehaviour:
   WaveEffectPrefab: {fileID: 1419075672708548832, guid: 748a432e495574f43a947bf25a86949f, type: 3}
   influenceType: 1
   CanRotate: 1
-  force: 3
+  force: 5
   decay: 2
 --- !u!212 &39548939694748233
 SpriteRenderer:
