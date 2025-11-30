@@ -35,6 +35,9 @@ public class BackgroundMusicManager : MonoBehaviour
     public int currentVolumeIndex = 0;
     public static float CurrentVolume;
 
+    public float mainMusicVolume = 1f;
+    public float levelMusicVolume = 1f;
+
     // PONTEIROS DE ESTADO DINÂMICO
     private AudioSource currentSource;
     private AudioSource previousSource;
@@ -42,14 +45,16 @@ public class BackgroundMusicManager : MonoBehaviour
     public AudioClip mainClip;
     public AudioClip levelClip;
 
+    private float ajudestedVolume = 1f;
+
     public void PlayMainClip()
     {
-        ChangeMusic(mainClip);
+        ChangeMusic(mainClip, mainMusicVolume);
     }
 
     public void PlayLevelClip()
     {
-        ChangeMusic(levelClip);
+        ChangeMusic(levelClip, levelMusicVolume);
     }
 
     private void Awake()
@@ -78,15 +83,15 @@ public class BackgroundMusicManager : MonoBehaviour
 
         currentVolumeIndex = -1;
         CycleMusicVolume();
-        PlayInitialMusic(mainClip);
+        PlayInitialMusic(mainClip, mainMusicVolume);
     }
 
-    public void ChangeMusic(AudioClip newClip)
+    public void ChangeMusic(AudioClip newClip, float volumeAdjust = 1f)
     {
-        StartCoroutine(TransitionMusicCoroutine(newClip));
+        StartCoroutine(TransitionMusicCoroutine(newClip, volumeAdjust));
     }
 
-    private IEnumerator TransitionMusicCoroutine(AudioClip newClip)
+    private IEnumerator TransitionMusicCoroutine(AudioClip newClip, float volumeAdjust = 1f)
     {
         if (newClip == null || currentSource.clip == newClip)
         {
@@ -107,7 +112,8 @@ public class BackgroundMusicManager : MonoBehaviour
         previousSource.DOFade(0f, FadeOutTime);
 
         // 4. FADE IN da nova
-        yield return currentSource.DOFade(MaxVolume, WaitBeforeNewMusicStart).WaitForCompletion();
+        ajudestedVolume = volumeAdjust;
+        yield return currentSource.DOFade(MaxVolume * volumeAdjust, WaitBeforeNewMusicStart).WaitForCompletion();
 
         // 5. Limpeza: 
         previousSource.Stop();
@@ -116,15 +122,16 @@ public class BackgroundMusicManager : MonoBehaviour
         Debug.Log($"Música trocada para: {newClip.name}. Volume: {MaxVolume}");
     }
 
-    public void PlayInitialMusic(AudioClip clip)
+    public void PlayInitialMusic(AudioClip clip, float volumeAdjust = 1f)
     {
         if (clip == null) return;
 
         DOTween.Kill(currentSource);
 
         currentSource.clip = clip;
-        currentSource.volume = MaxVolume;
+        currentSource.volume = MaxVolume * volumeAdjust;
         currentSource.Play();
+        ajudestedVolume = volumeAdjust;
         Debug.Log($"Música inicial tocando: {clip.name}. Volume: {MaxVolume}");
     }
 
@@ -148,7 +155,7 @@ public class BackgroundMusicManager : MonoBehaviour
         currentSource.volume = MaxVolume;
 
         // 3. ATUALIZA A VARIÁVEL ESTÁTICA E DISPARA O EVENTO COM O NOVO VALOR
-        CurrentVolume = MaxVolume;
+        CurrentVolume = MaxVolume * ajudestedVolume;
         // O símbolo '?' garante que o evento só seja invocado se houver inscritos.
         OnMusicVolumeChanged?.Invoke(CurrentVolume);
 
