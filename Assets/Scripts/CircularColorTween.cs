@@ -47,10 +47,13 @@ public class CircularColorTween : MonoBehaviour
         }
     }
 
+    bool firstColor = false;
     IEnumerator ColorCycle()
     {
+        firstColor = true;
         while (true)
         {
+            bool wasFirstCircle = firstCycle;
             if (sequenceIndex >= colorSequence.Count)
             {
                 if (firstCycle)
@@ -70,12 +73,11 @@ public class CircularColorTween : MonoBehaviour
 
             if (!isStartingWhite)
             {
-                float holdTime = Random.Range(minHoldTime, maxHoldTime);
-                yield return new WaitForSeconds(holdTime);
+                //float holdTime = Random.Range(minHoldTime, maxHoldTime);
+                yield return new WaitForSeconds(0);
             }
 
             float tweenDuration = Random.Range(minTweenSpeed, maxTweenSpeed);
-
             yield return targetImage.DOColor(nextColor, tweenDuration)
                 .SetEase(Ease.InOutQuad)
                 .WaitForCompletion();

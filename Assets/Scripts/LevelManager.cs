@@ -1,8 +1,9 @@
 ﻿// LevelManager.cs
-using UnityEngine;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
+using UnityEngine.Events;
 
 public class LevelManager : MonoBehaviour
 {
@@ -15,6 +16,8 @@ public class LevelManager : MonoBehaviour
         public int gridSize = 3;
         public TextAsset target;
     }
+
+    public bool firstTimeHelp = true;
 
     [Header("Rating Thresholds (0.0 to 1.0)")]
     public float OneStarThreshold = 0.60f;
@@ -40,19 +43,25 @@ public class LevelManager : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyUp(KeyCode.F5))
-        {
-            Level.ClearSave();
-        }
-        else if(Input.GetKeyUp (KeyCode.F6))
-        {
-            //levelFeedbackUI.StartLevelEvaluation();
-        }
+        //if (Input.GetKeyUp(KeyCode.F5))
+        //{
+        //    Level.ClearSave();
+        //}
+        //else if(Input.GetKeyUp (KeyCode.F6))
+        //{
+        //    //levelFeedbackUI.StartLevelEvaluation();
+        //}
     }
 
+    public UnityEvent FirstTimeHelp = new UnityEvent();
     private void Start()
     {
         //InitializeLevel();
+        if (firstTimeHelp)
+        {
+            firstTimeHelp = false;
+            FirstTimeHelp.Invoke();
+        }
     }
 
     public void InitializeLevel()

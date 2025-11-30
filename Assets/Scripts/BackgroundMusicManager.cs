@@ -152,10 +152,10 @@ public class BackgroundMusicManager : MonoBehaviour
         MaxVolume = PossibleVolumes[currentVolumeIndex];
 
         // 2. Aplica o novo volume à música que está tocando agora (currentSource) - INSTANTANEAMENTE
-        currentSource.volume = MaxVolume;
+        currentSource.volume = MaxVolume * ajudestedVolume;
 
         // 3. ATUALIZA A VARIÁVEL ESTÁTICA E DISPARA O EVENTO COM O NOVO VALOR
-        CurrentVolume = MaxVolume * ajudestedVolume;
+        CurrentVolume = MaxVolume;
         // O símbolo '?' garante que o evento só seja invocado se houver inscritos.
         OnMusicVolumeChanged?.Invoke(CurrentVolume);
 

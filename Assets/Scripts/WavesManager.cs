@@ -120,6 +120,7 @@ public class WavesManager : MonoBehaviour
     private void OnDisable()
     {
         running = false;
+        LeftSpriteRenderer.gameObject.SetActive(false);
     }
 
     private void Update()
