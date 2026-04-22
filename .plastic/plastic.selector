@@ -1,0 +1,4 @@
+repository "3D TILES/psi@1923876@cloud"
+  path "/"
+    br "/main"
+    co "/main"
